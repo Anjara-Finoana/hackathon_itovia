@@ -56,7 +56,7 @@ export function Login() {
     <div className="split-auth-page">
       <Link to="/" className="split-back-link">
         <ArrowLeft size={16} aria-hidden />
-        Retour à l’accueil
+        Retour à l’accueil xd
       </Link>
 
       {/* ── Panneau gauche bleu ── */}
