@@ -1,9 +1,16 @@
 import 'dotenv/config'
 import bcrypt from 'bcryptjs'
 import { PrismaClient, type Sector } from '@prisma/client'
-import { phoneKeyOf } from '../src/lib/validation.js'
 import { missionsData } from '../src/lib/opportunity-missions.js'
 import { HIRING_SUPPORTED, connectedAtData, placementLinkData } from '../src/lib/hiring-store.js'
+
+function phoneKeyOf(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  let digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('261')) digits = digits.slice(3)
+  else if (digits.startsWith('0')) digits = digits.slice(1)
+  return digits.length === 9 ? digits : null
+}
 
 const prisma = new PrismaClient()
 

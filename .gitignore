@@ -23,6 +23,9 @@ collecte/sortie/
 # CV déposés par les candidats (données utilisateur, jamais versionnées)
 server/uploads/
 
+# Dumps et sauvegardes SQL à la racine (jamais versionnés)
+/*.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

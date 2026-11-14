@@ -1,13 +1,79 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-offrec}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-offrec}
+      POSTGRES_DB: ${POSTGRES_DB:-offrec}
+    volumes:
+      - offrec_db_data:/var/lib/postgresql/data
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-offrec} -d ${POSTGRES_DB:-offrec}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offrec}:${POSTGRES_PASSWORD:-offrec}@db:5432/${POSTGRES_DB:-offrec}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal-net
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-offrec}:${POSTGRES_PASSWORD:-offrec}@db:5432/${POSTGRES_DB:-offrec}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      COOKIE_NAME: ${COOKIE_NAME:-offrec_session}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://offrec.qualitec.mg}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-OffRec <verification@offrec.qualitec.mg>}
+      RESEND_NOTIFICATION_FROM_EMAIL: ${RESEND_NOTIFICATION_FROM_EMAIL:-OffRec <notifications@offrec.qualitec.mg>}
+      EMAIL_SENDING_DISABLED: ${EMAIL_SENDING_DISABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN:-}
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+      HIRING_JOBS_ENABLED: ${HIRING_JOBS_ENABLED:-true}
+    volumes:
+      - offrec_uploads_cv:/app/server/uploads/cv
+      - offrec_uploads_preuves:/app/server/uploads/preuves
+    networks:
+      - internal-net
+
   web:
     build:
       context: .
       dockerfile: Dockerfile.web
     container_name: offrec-web
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    ports:
+      - "80:80"
+    depends_on:
+      - api
     networks:
+      - internal-net
       - coolify
     labels:
       - "traefik.enable=true"
@@ -22,6 +88,13 @@ services:
       - "traefik.http.routers.offrec-https.tls.certresolver=letsencrypt"
       - "traefik.http.services.offrec.loadbalancer.server.port=80"
 
+volumes:
+  offrec_db_data:
+  offrec_uploads_cv:
+  offrec_uploads_preuves:
+
 networks:
+  internal-net:
+    driver: bridge
   coolify:
     external: true

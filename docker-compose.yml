@@ -3,14 +3,85 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: offrec
-      POSTGRES_PASSWORD: offrec
-      POSTGRES_DB: offrec
-    ports:
-      # 5432 est déjà pris par un service PostgreSQL natif sur cette machine.
-      - '5433:5432'
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finoanaNorohanta}
+      POSTGRES_DB: ${POSTGRES_DB:-offrec}
     volumes:
       - offrec_db_data:/var/lib/postgresql/data
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-offrec}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-finoanaNorohanta}@db:5432/${POSTGRES_DB:-offrec}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal-net
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-finoanaNorohanta}@db:5432/${POSTGRES_DB:-offrec}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      COOKIE_NAME: ${COOKIE_NAME:-offrec_session}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://offrec.ffn-tech.com}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-OffRec <onboarding@resend.dev>}
+      RESEND_NOTIFICATION_FROM_EMAIL: ${RESEND_NOTIFICATION_FROM_EMAIL:-OffRec <onboarding@resend.dev>}
+      EMAIL_SENDING_DISABLED: ${EMAIL_SENDING_DISABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN}
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+      HIRING_JOBS_ENABLED: ${HIRING_JOBS_ENABLED:-true}
+    volumes:
+      - offrec_uploads_cv:/app/server/uploads/cv
+      - offrec_uploads_preuves:/app/server/uploads/preuves
+    networks:
+      - internal-net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: /api
+    container_name: offrec-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3080:80"
+    depends_on:
+      - api
+    networks:
+      - internal-net
 
 volumes:
   offrec_db_data:
+  offrec_uploads_cv:
+  offrec_uploads_preuves:
+
+networks:
+  internal-net:
+    driver: bridge
