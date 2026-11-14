@@ -44,15 +44,42 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - name: Exécution du déploiement via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          port: ${{ secrets.PROD_PORT }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script_stop: true
-          script: |
+      - name: Déploiement via SSH natif
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          set -e
+
+          # 1. Vérification de la présence des variables requises
+          if [ -z "$PROD_SSH_KEY" ]; then
+            echo "::error::Le secret PROD_SSH_KEY est vide ou inaccessible ! Vérifiez qu'il est bien présent dans 'Repository secrets'."
+            exit 1
+          fi
+          if [ -z "$PROD_HOST" ]; then
+            echo "::error::Le secret PROD_HOST est vide ou inaccessible !"
+            exit 1
+          fi
+
+          # 2. Configuration du client SSH natif
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf "%s\n" "$PROD_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # 3. Connexion et exécution distante via OpenSSH
+          PORT="${PROD_PORT:-22}"
+          USER="${PROD_USER:-whart}"
+
+          echo "🔐 Connexion SSH vers $USER@$PROD_HOST:$PORT..."
+          ssh -i ~/.ssh/deploy_key \
+              -p "$PORT" \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o LogLevel=ERROR \
+              "$USER@$PROD_HOST" << 'EOF'
             set -e
             echo "🚀 Début du déploiement OffRec sur la branche finoana..."
             cd /home/whart/Projects/Finoana/hackathon_itovia
@@ -72,3 +99,4 @@ jobs:
             curl -fsS http://127.0.0.1:3080/api/health || { echo "❌ Échec du contrôle de santé"; exit 1; }
 
             echo "✅ Déploiement en production terminé avec succès !"
+          EOF
