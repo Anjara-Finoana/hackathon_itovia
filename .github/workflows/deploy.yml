@@ -63,30 +63,13 @@ jobs:
             exit 1
           fi
 
-          # 2. Configuration et normalisation robuste de la clé SSH
+          # 2. Configuration du client SSH natif (nettoyage des retours chariot \r)
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          python3 -c '
-import os, base64
-raw = os.environ.get("PROD_SSH_KEY", "").strip()
-if (raw.startswith("\"") and raw.endswith("\"")) or (raw.startswith("\x27") and raw.endswith("\x27")):
-    raw = raw[1:-1].strip()
-if "\\n" in raw and "\n" not in raw:
-    raw = raw.replace("\\n", "\n")
-raw = raw.replace("\r", "")
-if not raw.startswith("-----BEGIN"):
-    try:
-        decoded = base64.b64decode(raw).decode("utf-8")
-        if "BEGIN" in decoded:
-            raw = decoded
-    except Exception:
-        pass
-with open(os.path.expanduser("~/.ssh/deploy_key"), "w") as f:
-    f.write(raw.strip() + "\n")
-'
+          echo "$PROD_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # Diagnostic : validation que la clé est reconnue par OpenSSH
+          # Diagnostic : vérification de l'empreinte de la clé
           echo "🔑 Empreinte de la clé SSH détectée :"
           ssh-keygen -l -f ~/.ssh/deploy_key
 
