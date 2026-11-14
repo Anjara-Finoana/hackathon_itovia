@@ -63,13 +63,30 @@ jobs:
             exit 1
           fi
 
-          # 2. Configuration et nettoyage du client SSH natif (suppression des \r Windows)
+          # 2. Configuration et normalisation robuste de la clé SSH
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s\n" "$PROD_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          python3 -c '
+import os, base64
+raw = os.environ.get("PROD_SSH_KEY", "").strip()
+if (raw.startswith("\"") and raw.endswith("\"")) or (raw.startswith("\x27") and raw.endswith("\x27")):
+    raw = raw[1:-1].strip()
+if "\\n" in raw and "\n" not in raw:
+    raw = raw.replace("\\n", "\n")
+raw = raw.replace("\r", "")
+if not raw.startswith("-----BEGIN"):
+    try:
+        decoded = base64.b64decode(raw).decode("utf-8")
+        if "BEGIN" in decoded:
+            raw = decoded
+    except Exception:
+        pass
+with open(os.path.expanduser("~/.ssh/deploy_key"), "w") as f:
+    f.write(raw.strip() + "\n")
+'
           chmod 600 ~/.ssh/deploy_key
 
-          # Diagnostic : validation que la clé est correctement chargée par OpenSSH
+          # Diagnostic : validation que la clé est reconnue par OpenSSH
           echo "🔑 Empreinte de la clé SSH détectée :"
           ssh-keygen -l -f ~/.ssh/deploy_key
 
