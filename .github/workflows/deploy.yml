@@ -1,0 +1,74 @@
+name: CI/CD Production Deploy
+
+on:
+  push:
+    branches:
+      - finoana
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Test & Build (Quality Gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Configuration de Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+
+      - name: Build & Typecheck Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build & Typecheck Backend
+        run: |
+          cd server
+          npm ci
+          npx prisma generate
+          npm run build
+
+  deploy:
+    name: Deploy to Production VPS
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exécution du déploiement via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          port: ${{ secrets.PROD_PORT }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Début du déploiement OffRec sur la branche finoana..."
+            cd /home/whart/Projects/Finoana/hackathon_itovia
+
+            echo "📥 Synchronisation du code Git..."
+            git fetch origin finoana
+            git reset --hard origin/finoana
+
+            echo "🐳 Reconstruction des conteneurs de production..."
+            docker compose up -d --build --remove-orphans
+
+            echo "🧹 Nettoyage des images Docker inutilisées..."
+            docker image prune -f
+
+            echo "🩺 Vérification de l'API..."
+            sleep 5
+            curl -fsS http://127.0.0.1:3080/api/health || { echo "❌ Échec du contrôle de santé"; exit 1; }
+
+            echo "✅ Déploiement en production terminé avec succès !"
