@@ -63,11 +63,15 @@ jobs:
             exit 1
           fi
 
-          # 2. Configuration du client SSH natif
+          # 2. Configuration et nettoyage du client SSH natif (suppression des \r Windows)
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s\n" "$PROD_SSH_KEY" > ~/.ssh/deploy_key
+          printf "%s\n" "$PROD_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          # Diagnostic : validation que la clé est correctement chargée par OpenSSH
+          echo "🔑 Empreinte de la clé SSH détectée :"
+          ssh-keygen -l -f ~/.ssh/deploy_key
 
           # 3. Connexion et exécution distante via OpenSSH
           PORT="${PROD_PORT:-22}"
