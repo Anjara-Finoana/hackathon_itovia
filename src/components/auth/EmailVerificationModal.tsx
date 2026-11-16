@@ -11,10 +11,13 @@ interface EmailVerificationModalProps {
   email: string
   onVerified: (token: string) => void
   onClose: () => void
+  devCode?: string
+  devNotice?: string
 }
 
-export function EmailVerificationModal({ email, onVerified, onClose }: EmailVerificationModalProps) {
-  const [digits, setDigits] = useState(['', '', '', ''])
+export function EmailVerificationModal({ email, onVerified, onClose, devCode, devNotice }: EmailVerificationModalProps) {
+  const [digits, setDigits] = useState(() => (devCode ? devCode.slice(0, 4).split('') : ['', '', '', '']))
+  const [currentDevCode, setCurrentDevCode] = useState(devCode)
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S)
@@ -91,8 +94,12 @@ export function EmailVerificationModal({ email, onVerified, onClose }: EmailVeri
     setError('')
     setDigits(['', '', '', ''])
     try {
-      await apiSendVerificationCode(email)
+      const res = await apiSendVerificationCode(email)
       setCooldown(RESEND_COOLDOWN_S)
+      if (res.devCode) {
+        setCurrentDevCode(res.devCode)
+        setDigits(res.devCode.slice(0, 4).split(''))
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Envoi impossible pour le moment.')
     }
@@ -124,6 +131,23 @@ export function EmailVerificationModal({ email, onVerified, onClose }: EmailVeri
             Nous avons envoyé un code à 4 chiffres à <strong>{email}</strong>. Entrez-le
             ci-dessous pour continuer votre inscription.
           </p>
+
+          {currentDevCode && (
+            <div
+              style={{
+                background: '#eef4ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                fontSize: '13px',
+                color: '#1e40af',
+                lineHeight: 1.4,
+              }}
+            >
+              Mode démo / test activé : votre code est <strong>{currentDevCode}</strong>.
+            </div>
+          )}
 
           <div className="verify-modal-digits">
             {digits.map((d, i) => (

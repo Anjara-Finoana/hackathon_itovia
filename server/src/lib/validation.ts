@@ -70,7 +70,7 @@ export const candidateProfileSchema = z.object({
   experienceLevel: z.enum(experienceLevels),
   desiredOpportunityTypes: z.array(z.enum(opportunityTypes)).default([]),
   availability: z.enum(availabilities),
-  sector: z.enum(sectors).optional(),
+  sector: z.preprocess((val) => (val === '' ? null : val), z.enum(sectors).nullable().optional()),
 })
 
 export const recruiterProfileSchema = z.object({

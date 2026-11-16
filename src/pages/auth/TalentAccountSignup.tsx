@@ -42,6 +42,8 @@ export function TalentAccountSignup() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [devCode, setDevCode] = useState<string | undefined>()
+  const [devNotice, setDevNotice] = useState<string | undefined>()
 
   useEffect(() => {
     if (currentUser) {
@@ -54,7 +56,9 @@ export function TalentAccountSignup() {
     setLoading(true)
     setError('')
     try {
-      await apiSendVerificationCode(email)
+      const res = await apiSendVerificationCode(email)
+      setDevCode(res.devCode)
+      setDevNotice(res.devNotice)
       setShowVerifyModal(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible d’envoyer le code de vérification.')
@@ -254,6 +258,8 @@ export function TalentAccountSignup() {
           email={email}
           onVerified={handleVerified}
           onClose={() => { setShowVerifyModal(false); setLoading(false) }}
+          devCode={devCode}
+          devNotice={devNotice}
         />
       )}
     </div>

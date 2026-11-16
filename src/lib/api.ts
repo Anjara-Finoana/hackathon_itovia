@@ -179,7 +179,7 @@ export function apiRegister(payload: {
 /* ------------------------------------------------------------------ */
 
 export function apiSendVerificationCode(email: string) {
-  return request<{ ok: true }>('/verification/send-code', {
+  return request<{ ok: true; devNotice?: string; devCode?: string }>('/verification/send-code', {
     method: 'POST',
     body: JSON.stringify({ email }),
   })
