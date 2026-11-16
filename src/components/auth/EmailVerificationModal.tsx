@@ -132,7 +132,7 @@ export function EmailVerificationModal({ email, onVerified, onClose, devCode, de
             ci-dessous pour continuer votre inscription.
           </p>
 
-          {currentDevCode && (
+          {(currentDevCode || devNotice) && (
             <div
               style={{
                 background: '#eef4ff',
@@ -145,7 +145,11 @@ export function EmailVerificationModal({ email, onVerified, onClose, devCode, de
                 lineHeight: 1.4,
               }}
             >
-              Mode démo / test activé : votre code est <strong>{currentDevCode}</strong>.
+              {currentDevCode ? (
+                <>Mode démo / test activé : votre code est <strong>{currentDevCode}</strong>.</>
+              ) : (
+                devNotice
+              )}
             </div>
           )}
 
