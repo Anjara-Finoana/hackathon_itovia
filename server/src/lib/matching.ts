@@ -377,7 +377,14 @@ export async function runMatchingForOpportunity(opportunityId: string, options: 
 
   const [candidates, existing, placed] = await Promise.all([
     prisma.candidateProfile.findMany({
-      where: { user: { role: 'candidate' } },
+      where: {
+        user: { role: 'candidate', status: { in: ['active', 'warned'] } },
+        matchingConsentAt: { not: null },
+        cvUrl: { not: null },
+        ...(opportunity.requiredSkills.length > 0
+          ? { skills: { hasSome: opportunity.requiredSkills } }
+          : {}),
+      },
       include: { user: { select: { role: true, status: true } } },
     }),
     prisma.matchSuggestion.findMany({
