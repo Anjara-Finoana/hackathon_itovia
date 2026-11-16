@@ -228,6 +228,24 @@ function calculateConfidence(data: any): 'high' | 'medium' | 'low' {
   return 'low'
 }
 
+function sanitizeHttpUrl(url: any): string | null {
+  if (typeof url !== 'string') return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return trimmed
+    }
+    return null
+  } catch {
+    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
+      return `https://${trimmed}`
+    }
+    return null
+  }
+}
+
 function validateCandidateInfo(info: any): ExtractedCandidateInfo {
   return {
     firstName: info?.firstName || null,
@@ -236,9 +254,9 @@ function validateCandidateInfo(info: any): ExtractedCandidateInfo {
     phone: info?.phone || null,
     city: info?.city || null,
     country: info?.country || null,
-    linkedin: info?.linkedin || null,
-    github: info?.github || null,
-    portfolio: info?.portfolio || null,
+    linkedin: sanitizeHttpUrl(info?.linkedin),
+    github: sanitizeHttpUrl(info?.github),
+    portfolio: sanitizeHttpUrl(info?.portfolio),
   }
 }
 
@@ -281,7 +299,7 @@ function validateCertification(cert: any): ExtractedCertification {
     issuer: cert?.issuer || 'N/A',
     issueDate: cert?.issueDate || null,
     expiryDate: cert?.expiryDate || null,
-    credentialUrl: cert?.credentialUrl || null,
+    credentialUrl: sanitizeHttpUrl(cert?.credentialUrl),
   }
 }
 
@@ -295,7 +313,7 @@ function validateProject(proj: any): ExtractedProject {
     technologies: Array.isArray(proj?.technologies)
       ? proj.technologies.filter((t: any) => typeof t === 'string')
       : [],
-    url: proj?.url || null,
+    url: sanitizeHttpUrl(proj?.url),
   }
 }
 
