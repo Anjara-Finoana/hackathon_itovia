@@ -45,6 +45,7 @@ export interface SafeGenerateOptions {
   /** Données récupérées de la base — considérées comme non fiables. */
   retrievedData?: string
   maxOutputChars?: number
+  maxInputChars?: number
   timeoutMs?: number
 }
 
@@ -64,7 +65,7 @@ export async function safeGenerate(options: SafeGenerateOptions): Promise<SafeGe
   // Les modèles Gemini récents « réfléchissent » avant de répondre (tokens de
   // raisonnement facturés mais invisibles) : 8s était trop court, ~20s est
   // un compromis raisonnable pour un assistant synchrone dans l'UI.
-  const { system, userInput, retrievedData, maxOutputChars = 2000, timeoutMs = 30000 } = options
+  const { system, userInput, retrievedData, maxOutputChars = 2000, maxInputChars = 30000, timeoutMs = 30000 } = options
 
   if (!client) {
     return { text: null, blocked: false, reason: 'IA non configurée (GEMINI_API_KEY manquante).' }
@@ -76,7 +77,7 @@ export async function safeGenerate(options: SafeGenerateOptions): Promise<SafeGe
     return { text: null, blocked: true, reason: 'Tentative de manipulation détectée dans la requête.' }
   }
 
-  const cleanUser = sanitize(userInput, 4000)
+  const cleanUser = sanitize(userInput, maxInputChars)
   const cleanRetrieved = retrievedData ? sanitize(retrievedData, 6000) : ''
 
   const prompt = [

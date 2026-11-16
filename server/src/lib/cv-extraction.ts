@@ -10,12 +10,13 @@ import type {
 } from '../types/cv-extraction.js'
 
 /**
- * Extrait le texte brut d'un PDF et le nettoie
+ * Extrait le texte brut d'un PDF et le nettoie sans détruire la mise en page
  */
 function cleanPdfText(text: string): string {
   return text
     .replace(/\r\n/g, '\n') // Normaliser les retours à la ligne
-    .replace(/\s+/g, ' ') // Normaliser les espaces multiples
+    .replace(/[^\S\r\n]+/g, ' ') // Réduire les espaces horizontaux sans supprimer les sauts de ligne
+    .replace(/\n{3,}/g, '\n\n') // Éviter les lignes vides excessives
     .trim()
 }
 
@@ -130,6 +131,7 @@ ${cleanedText}`
   const result = await safeGenerate({
     system: systemPrompt,
     userInput: userPrompt,
+    maxInputChars: 30000, // Autorise l'analyse de CV multi-pages sans troncature
     maxOutputChars: 15000, // Augmenté car JSON structuré plus long
     timeoutMs: 45000, // Plus de temps pour l'analyse
   })
