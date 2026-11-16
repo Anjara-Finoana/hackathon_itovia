@@ -175,6 +175,30 @@ export function EmailVerificationModal({ email, onVerified, onClose, devCode, de
 
           {error && <p className="verify-modal-error">{error}</p>}
 
+          <button
+            type="button"
+            className="verify-modal-submit"
+            onClick={() => submitCode(digits.join(''))}
+            disabled={verifying || digits.some((d) => !d)}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '12px',
+              marginTop: '16px',
+              marginBottom: '16px',
+              background: '#1a56ff',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: digits.some((d) => !d) ? 'not-allowed' : 'pointer',
+              opacity: digits.some((d) => !d) ? 0.6 : 1,
+            }}
+          >
+            {verifying ? 'Vérification...' : 'Valider le code'}
+          </button>
+
           <p className="verify-modal-hint">
             Vous pouvez aussi cliquer sur le bouton « Vérifier mon email » dans
             l’email reçu — la vérification se fera automatiquement ici, sans
