@@ -67,6 +67,15 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives de connexion échouées. Veuillez réessayer dans 15 minutes.' },
+})
+
 const USER_INCLUDE = {
   candidateProfile: true,
   recruiterProfile: true,
@@ -216,7 +225,7 @@ router.post('/register', authLimiter, async (req, res, next) => {
   }
 })
 
-router.post('/login', authLimiter, async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const body = loginSchema.parse(req.body)
     const user = await prisma.user.findUnique({

@@ -39,6 +39,12 @@ jobs:
           npx prisma generate
           npm run build
 
+      - name: Validate Pure Hiring Rules & Trust Logic
+        run: |
+          cd server
+          npx tsx scripts/hiring-examples.ts
+          npx tsx scripts/trust-examples.ts
+
   deploy:
     name: Deploy to Production VPS
     needs: ci

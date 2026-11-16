@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:browse": "node scripts/browse-e2e.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.15",
