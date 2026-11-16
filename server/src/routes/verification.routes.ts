@@ -25,6 +25,13 @@ const verifyLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+const statusLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 /** Code peppéré avec JWT_SECRET plutôt qu'en clair — un bcrypt serait
  *  inutilement lent pour 10 000 combinaisons déjà protégées par le
  *  rate-limit et le compteur de tentatives par ligne. */
@@ -77,6 +84,16 @@ router.post('/send-code', sendLimiter, async (req, res, next) => {
       res.status(502).json({ error: result.reason ?? 'Envoi impossible pour le moment.' })
       return
     }
+
+    // Lie la session locale du demandeur pour interdire le vol de token via /status
+    res.cookie('offrec_verification_flow', signConfirmToken(record.id), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: CODE_TTL_MS,
+      path: '/api/verification',
+    })
+
     res.status(201).json({ ok: true })
   } catch (err) {
     next(err)
@@ -121,16 +138,33 @@ router.post('/verify-code', verifyLimiter, async (req, res, next) => {
 })
 
 /** Sondé par la modale pendant qu'elle est ouverte : détecte une
- *  vérification faite via le lien cliqué dans l'email (autre onglet). */
-router.get('/status', async (req, res, next) => {
+ *  vérification faite via le lien cliqué dans l'email (autre onglet).
+ *  Protégé par rate-limit et validation de la session locale pour empêcher
+ *  le vol de token par un tiers. */
+router.get('/status', statusLimiter, async (req, res, next) => {
   try {
     const email = typeof req.query.email === 'string' ? req.query.email.toLowerCase() : ''
     if (!email) {
       res.status(400).json({ error: 'Email requis.' })
       return
     }
+
+    const flowCookie = req.cookies?.offrec_verification_flow
+    const flowId = flowCookie ? verifyConfirmToken(flowCookie) : null
+
+    if (!flowId) {
+      res.json({ verified: false })
+      return
+    }
+
     const record = await prisma.emailVerification.findFirst({
-      where: { email },
+      where: {
+        id: flowId,
+        email,
+        verifiedAt: { not: null },
+        token: { not: null },
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'desc' },
     })
     if (!record || !record.verifiedAt || !record.token) {

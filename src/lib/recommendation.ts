@@ -38,8 +38,20 @@ function typeMatch(
   return desired.includes(oppType) ? 1 : 0.25
 }
 
-function availabilityMatch(): number {
-  return 0.85
+function availabilityMatch(availability?: CandidateProfile['availability']): number {
+  if (!availability) return 0.85
+  switch (availability) {
+    case 'immediate':
+      return 1.0
+    case 'm1':
+      return 0.85
+    case 'flexible':
+      return 0.7
+    case 'm3':
+      return 0.5
+    default:
+      return 0.85
+  }
 }
 
 export function scoreOpportunity(
@@ -50,7 +62,7 @@ export function scoreOpportunity(
   const location = locationMatch(profile.province, opportunity.province)
   const level = levelMatch(profile.experienceLevel, opportunity.level)
   const type = typeMatch(profile.desiredOpportunityTypes, opportunity.opportunityType)
-  const availability = availabilityMatch()
+  const availability = availabilityMatch(profile.availability)
 
   const weights = {
     skills: 0.4,

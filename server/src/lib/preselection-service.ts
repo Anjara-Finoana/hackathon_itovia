@@ -50,7 +50,9 @@ export async function loadPreselection(
 
   const [profiles, suggestions, placed] = await Promise.all([
     prisma.candidateProfile.findMany({
-      where: { user: { role: 'candidate' } },
+      where: {
+        user: { role: 'candidate', status: { in: ['active', 'warned'] } },
+      },
       include: { user: { select: { email: true, role: true, status: true } } },
     }),
     prisma.matchSuggestion.findMany({

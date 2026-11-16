@@ -4,6 +4,15 @@ import { Card } from '../ui/Card'
 import type { CandidateProfile } from '../../types'
 import './CVExtractedData.css'
 
+function toSafeHref(url?: string | null): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  return null
+}
+
 interface CVExtractedDataProps {
   profile: CandidateProfile
 }
@@ -103,26 +112,26 @@ export function CVExtractedData({ profile }: CVExtractedDataProps) {
                 <span>{profile.cvExtractedInfo.country}</span>
               </div>
             )}
-            {profile.cvExtractedInfo.linkedin && (
+            {toSafeHref(profile.cvExtractedInfo.linkedin) && (
               <div className="cv-info-item">
                 <span className="cv-info-label">LinkedIn :</span>
-                <a href={profile.cvExtractedInfo.linkedin} target="_blank" rel="noreferrer">
+                <a href={toSafeHref(profile.cvExtractedInfo.linkedin)!} target="_blank" rel="noopener noreferrer">
                   Profil
                 </a>
               </div>
             )}
-            {profile.cvExtractedInfo.github && (
+            {toSafeHref(profile.cvExtractedInfo.github) && (
               <div className="cv-info-item">
                 <span className="cv-info-label">GitHub :</span>
-                <a href={profile.cvExtractedInfo.github} target="_blank" rel="noreferrer">
+                <a href={toSafeHref(profile.cvExtractedInfo.github)!} target="_blank" rel="noopener noreferrer">
                   Profil
                 </a>
               </div>
             )}
-            {profile.cvExtractedInfo.portfolio && (
+            {toSafeHref(profile.cvExtractedInfo.portfolio) && (
               <div className="cv-info-item">
                 <span className="cv-info-label">Portfolio :</span>
-                <a href={profile.cvExtractedInfo.portfolio} target="_blank" rel="noreferrer">
+                <a href={toSafeHref(profile.cvExtractedInfo.portfolio)!} target="_blank" rel="noopener noreferrer">
                   Voir
                 </a>
               </div>
@@ -251,8 +260,8 @@ export function CVExtractedData({ profile }: CVExtractedDataProps) {
                     ))}
                   </div>
                 )}
-                {proj.url && (
-                  <a href={proj.url} target="_blank" rel="noreferrer" className="cv-link">
+                {toSafeHref(proj.url) && (
+                  <a href={toSafeHref(proj.url)!} target="_blank" rel="noopener noreferrer" className="cv-link">
                     Voir le projet →
                   </a>
                 )}
@@ -280,8 +289,8 @@ export function CVExtractedData({ profile }: CVExtractedDataProps) {
                     Obtenu : {new Date(cert.issueDate).toLocaleDateString('fr-FR')}
                   </p>
                 )}
-                {cert.credentialUrl && (
-                  <a href={cert.credentialUrl} target="_blank" rel="noreferrer" className="cv-link">
+                {toSafeHref(cert.credentialUrl) && (
+                  <a href={toSafeHref(cert.credentialUrl)!} target="_blank" rel="noopener noreferrer" className="cv-link">
                     Voir la certification →
                   </a>
                 )}

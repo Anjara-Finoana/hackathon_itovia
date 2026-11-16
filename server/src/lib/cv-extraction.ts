@@ -10,12 +10,13 @@ import type {
 } from '../types/cv-extraction.js'
 
 /**
- * Extrait le texte brut d'un PDF et le nettoie
+ * Extrait le texte brut d'un PDF et le nettoie sans détruire la mise en page
  */
 function cleanPdfText(text: string): string {
   return text
     .replace(/\r\n/g, '\n') // Normaliser les retours à la ligne
-    .replace(/\s+/g, ' ') // Normaliser les espaces multiples
+    .replace(/[^\S\r\n]+/g, ' ') // Réduire les espaces horizontaux sans supprimer les sauts de ligne
+    .replace(/\n{3,}/g, '\n\n') // Éviter les lignes vides excessives
     .trim()
 }
 
@@ -130,6 +131,7 @@ ${cleanedText}`
   const result = await safeGenerate({
     system: systemPrompt,
     userInput: userPrompt,
+    maxInputChars: 30000, // Autorise l'analyse de CV multi-pages sans troncature
     maxOutputChars: 15000, // Augmenté car JSON structuré plus long
     timeoutMs: 45000, // Plus de temps pour l'analyse
   })
@@ -228,6 +230,24 @@ function calculateConfidence(data: any): 'high' | 'medium' | 'low' {
   return 'low'
 }
 
+function sanitizeHttpUrl(url: any): string | null {
+  if (typeof url !== 'string') return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return trimmed
+    }
+    return null
+  } catch {
+    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) {
+      return `https://${trimmed}`
+    }
+    return null
+  }
+}
+
 function validateCandidateInfo(info: any): ExtractedCandidateInfo {
   return {
     firstName: info?.firstName || null,
@@ -236,9 +256,9 @@ function validateCandidateInfo(info: any): ExtractedCandidateInfo {
     phone: info?.phone || null,
     city: info?.city || null,
     country: info?.country || null,
-    linkedin: info?.linkedin || null,
-    github: info?.github || null,
-    portfolio: info?.portfolio || null,
+    linkedin: sanitizeHttpUrl(info?.linkedin),
+    github: sanitizeHttpUrl(info?.github),
+    portfolio: sanitizeHttpUrl(info?.portfolio),
   }
 }
 
@@ -281,7 +301,7 @@ function validateCertification(cert: any): ExtractedCertification {
     issuer: cert?.issuer || 'N/A',
     issueDate: cert?.issueDate || null,
     expiryDate: cert?.expiryDate || null,
-    credentialUrl: cert?.credentialUrl || null,
+    credentialUrl: sanitizeHttpUrl(cert?.credentialUrl),
   }
 }
 
@@ -295,7 +315,7 @@ function validateProject(proj: any): ExtractedProject {
     technologies: Array.isArray(proj?.technologies)
       ? proj.technologies.filter((t: any) => typeof t === 'string')
       : [],
-    url: proj?.url || null,
+    url: sanitizeHttpUrl(proj?.url),
   }
 }
 
