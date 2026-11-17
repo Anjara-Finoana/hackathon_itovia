@@ -128,6 +128,14 @@ async function deliver(resend: Resend, email: OutgoingEmail): Promise<SendResult
     const result = await resend.emails.send({ ...email, replyTo: replyToEmail })
     if (result.error) {
       console.error('[mailer] Erreur Resend', result.error)
+      const errObj = result.error as any
+      if (typeof errObj.message === 'string' && errObj.message.includes('testing emails to your own email address')) {
+        return {
+          ok: false,
+          reason:
+            "Service email en mode test : les e-mails ne peuvent être envoyés qu'à l'adresse autorisée (finoananorohanta@gmail.com). Pour envoyer à d'autres adresses, un domaine vérifié doit être configuré dans Resend.",
+        }
+      }
       return { ok: false, reason: SEND_FAILED_REASON }
     }
     return { ok: true }

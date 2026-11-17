@@ -56,6 +56,7 @@ services:
       GOOGLE_REFRESH_TOKEN: ${GOOGLE_REFRESH_TOKEN}
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
       HIRING_JOBS_ENABLED: ${HIRING_JOBS_ENABLED:-true}
+      ALLOW_DEMO_VERIFICATION: ${ALLOW_DEMO_VERIFICATION:-false}
     volumes:
       - offrec_uploads_cv:/app/server/uploads/cv
       - offrec_uploads_preuves:/app/server/uploads/preuves

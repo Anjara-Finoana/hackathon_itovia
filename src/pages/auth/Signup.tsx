@@ -55,6 +55,8 @@ export function Signup() {
   const [loading, setLoading] = useState(false)
   const [submittedLead, setSubmittedLead] = useState<TalentLead | null>(null)
   const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [devCode, setDevCode] = useState<string | undefined>()
+  const [devNotice, setDevNotice] = useState<string | undefined>()
 
   useEffect(() => {
     if (currentUser) {
@@ -92,7 +94,9 @@ export function Signup() {
     // Un compte n'est jamais créé avant que l'email ne soit vérifié — la
     // modale s'ouvre ici, register() n'est appelé qu'au succès (onVerified).
     try {
-      await apiSendVerificationCode(email)
+      const res = await apiSendVerificationCode(email)
+      setDevCode(res.devCode)
+      setDevNotice(res.devNotice)
       setShowVerifyModal(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible d’envoyer le code de vérification.')
@@ -526,6 +530,8 @@ export function Signup() {
           email={email}
           onVerified={handleVerified}
           onClose={() => { setShowVerifyModal(false); setLoading(false) }}
+          devCode={devCode}
+          devNotice={devNotice}
         />
       )}
     </div>

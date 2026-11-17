@@ -11,10 +11,13 @@ interface EmailVerificationModalProps {
   email: string
   onVerified: (token: string) => void
   onClose: () => void
+  devCode?: string
+  devNotice?: string
 }
 
-export function EmailVerificationModal({ email, onVerified, onClose }: EmailVerificationModalProps) {
-  const [digits, setDigits] = useState(['', '', '', ''])
+export function EmailVerificationModal({ email, onVerified, onClose, devCode, devNotice }: EmailVerificationModalProps) {
+  const [digits, setDigits] = useState(() => (devCode ? devCode.slice(0, 4).split('') : ['', '', '', '']))
+  const [currentDevCode, setCurrentDevCode] = useState(devCode)
   const [error, setError] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S)
@@ -91,8 +94,12 @@ export function EmailVerificationModal({ email, onVerified, onClose }: EmailVeri
     setError('')
     setDigits(['', '', '', ''])
     try {
-      await apiSendVerificationCode(email)
+      const res = await apiSendVerificationCode(email)
       setCooldown(RESEND_COOLDOWN_S)
+      if (res.devCode) {
+        setCurrentDevCode(res.devCode)
+        setDigits(res.devCode.slice(0, 4).split(''))
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Envoi impossible pour le moment.')
     }
@@ -125,6 +132,27 @@ export function EmailVerificationModal({ email, onVerified, onClose }: EmailVeri
             ci-dessous pour continuer votre inscription.
           </p>
 
+          {(currentDevCode || devNotice) && (
+            <div
+              style={{
+                background: '#eef4ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '16px',
+                fontSize: '13px',
+                color: '#1e40af',
+                lineHeight: 1.4,
+              }}
+            >
+              {currentDevCode ? (
+                <>Mode démo / test activé : votre code est <strong>{currentDevCode}</strong>.</>
+              ) : (
+                devNotice
+              )}
+            </div>
+          )}
+
           <div className="verify-modal-digits">
             {digits.map((d, i) => (
               <input
@@ -146,6 +174,30 @@ export function EmailVerificationModal({ email, onVerified, onClose }: EmailVeri
           </div>
 
           {error && <p className="verify-modal-error">{error}</p>}
+
+          <button
+            type="button"
+            className="verify-modal-submit"
+            onClick={() => submitCode(digits.join(''))}
+            disabled={verifying || digits.some((d) => !d)}
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '12px',
+              marginTop: '16px',
+              marginBottom: '16px',
+              background: '#1a56ff',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: digits.some((d) => !d) ? 'not-allowed' : 'pointer',
+              opacity: digits.some((d) => !d) ? 0.6 : 1,
+            }}
+          >
+            {verifying ? 'Vérification...' : 'Valider le code'}
+          </button>
 
           <p className="verify-modal-hint">
             Vous pouvez aussi cliquer sur le bouton « Vérifier mon email » dans
