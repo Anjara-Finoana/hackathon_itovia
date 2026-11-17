@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { SearchX } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Plus, SearchX } from 'lucide-react'
 import { ProviderCard } from '../../components/provider/ProviderCard'
 import {
   ProviderFilters,
@@ -19,7 +19,9 @@ import './Directory.css'
  * contribuer en demande un. C'est la porte d'entrée du produit.
  */
 export function Directory() {
-  const { providers, recommendations, membersById, hydrated } = useApp()
+  const { currentUser, providers, recommendations, membersById, hydrated } = useApp()
+  // Seul l'admin ajoute un professionnel (garde serveur `requireRole('admin')`).
+  const isAdmin = currentUser?.role === 'admin'
   const [searchParams] = useSearchParams()
   const [filters, setFilters] = useState<DirectoryFilterState>(() => ({
     search: searchParams.get('q') ?? '',
@@ -59,6 +61,12 @@ export function Directory() {
           chantier. Classés par qualité <strong>et</strong> par solidité de
           l’information.
         </p>
+        {isAdmin && (
+          <Link to="/annuaire/ajouter-un-professionnel" className="btn btn-primary btn-sm dir-add">
+            <Plus size={16} aria-hidden />
+            Ajouter un professionnel
+          </Link>
+        )}
       </header>
 
       <ProviderFilters filters={filters} onChange={setFilters} />
@@ -67,7 +75,11 @@ export function Directory() {
         <EmptyState
           icon={SearchX}
           title="Aucun prestataire trouvé"
-          description="Élargissez votre recherche, ou ajoutez la fiche d’un prestataire que vous connaissez."
+          description={
+            isAdmin
+              ? 'Élargissez votre recherche, ou ajoutez ce professionnel à l’annuaire.'
+              : 'Élargissez votre recherche, ou recommandez un professionnel déjà listé. Un professionnel manque ? Signalez-le à OffRec.'
+          }
         />
       ) : (
         <>

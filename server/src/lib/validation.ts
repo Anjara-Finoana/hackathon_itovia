@@ -752,7 +752,8 @@ export const talentEndorsementInputSchema = z
       .refine((v) => !Number.isNaN(Date.parse(v)), 'Date invalide.')
       .refine((v) => Date.parse(v) <= endOfTodayMadagascar(), 'La date ne peut pas être dans le futur.'),
     highlights: z.array(z.string()).min(1, 'Choisissez au moins un point fort.').max(5, '5 points forts au maximum.'),
-    comment: optionalText(1000),
+    // Publié sous la recommandation (décision 2026-11-16) : jamais de coordonnées.
+    comment: optionalNoContactText(1000, '1000 caractères au maximum.'),
     authorDistrict: optionalText(80),
   })
   .refine((v) => Boolean(v.subjectName || v.contactPhone || v.contactHint), {
@@ -789,9 +790,20 @@ export const publicVisibilitySchema = z.object({
   granted: z.boolean(),
 })
 
-/** L'admin ne peut que retirer une fiche publique (modération), jamais la donner. */
-export const adminPublicVisibilitySchema = z.object({
-  granted: z.literal(false),
+/**
+ * Modération admin d'une fiche de la vitrine. `{ granted: false }` (ancien
+ * corps) : retire l'accord public ET masque la fiche. `{ hidden }` : masque
+ * ou réaffiche (décision 2026-11-16) sans toucher à l'accord — l'admin ne
+ * donne jamais un accord à la place de la personne.
+ */
+export const adminPublicVisibilitySchema = z.union([
+  z.object({ granted: z.literal(false) }),
+  z.object({ hidden: z.boolean() }),
+])
+
+/** Masquer / réafficher un signal dans la vitrine (admin). */
+export const adminSignalVisibilitySchema = z.object({
+  hidden: z.boolean(),
 })
 
 const optionalFilter = z
@@ -863,7 +875,8 @@ export const companyEndorsementInputSchema = z
       .refine((v) => !Number.isNaN(Date.parse(v)), 'Date invalide.')
       .refine((v) => Date.parse(v) <= endOfTodayMadagascar(), 'La date ne peut pas être dans le futur.'),
     highlights: z.array(z.string()).min(1, 'Choisissez au moins un point fort.').max(5, '5 points forts au maximum.'),
-    comment: optionalText(1000),
+    // Publié sous la recommandation (décision 2026-11-16) : jamais de coordonnées.
+    comment: optionalNoContactText(1000, '1000 caractères au maximum.'),
     authorDistrict: optionalText(80),
   })
   .refine((v) => Boolean(v.companyId) !== Boolean(v.company), {

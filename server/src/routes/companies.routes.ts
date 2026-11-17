@@ -71,7 +71,11 @@ router.get('/by-opportunity/:opportunityId', readLimiter, async (req, res, next)
           select: { id: true },
         })
       : null
-    res.json({ company: company ? await getPublicCompany(company.id) : null })
+    // Encart seulement : la liste des recommandations reste sur la fiche
+    // détaillée (`GET /companies/:id`).
+    const full = company ? await getPublicCompany(company.id) : null
+    if (full) delete full.recommendations
+    res.json({ company: full })
   } catch (err) {
     next(err)
   }

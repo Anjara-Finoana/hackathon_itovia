@@ -274,6 +274,9 @@ router.post('/talent-signals/:id/merge', async (req, res, next) => {
         data: { status: 'fusionne', mergedIntoId: into.id, agentId: source.agentId ?? me },
       }),
       prisma.talentSignal.update({ where: { id: into.id }, data: { expiresAt: signalExpiry() } }),
+      // Vitrine (décision 2026-11-16) : seule la cible reste publiée ; les
+      // demandes de contact du signal fusionné la suivent.
+      prisma.talentContactRequest.updateMany({ where: { signalId: source.id }, data: { signalId: into.id } }),
     ])
     await prisma.auditLog.create({
       data: { userId: me, action: 'talent_signal_merged', metadata: { signalId: source.id, intoId: into.id } },

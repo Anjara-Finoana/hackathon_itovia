@@ -115,6 +115,8 @@ const ACTIONS: Record<string, ActionDef> = {
   talent_signal_converted: { family: 'talents', label: 'Signal converti en profil de talent' },
   talent_consent_public_granted: { family: 'talents', label: 'Fiche publique de talent ouverte' },
   talent_consent_public_revoked: { family: 'talents', label: 'Fiche publique de talent retirée' },
+  talent_public_hidden: { family: 'talents', label: 'Talent masqué de la vitrine' },
+  talent_public_unhidden: { family: 'talents', label: 'Talent réaffiché dans la vitrine' },
   talent_signal_taken: { family: 'talents', label: 'Signal de talent pris en charge' },
   talent_signal_status: { family: 'talents', label: 'Statut d’un signal de talent modifié' },
   talent_signal_merged: { family: 'talents', label: 'Signaux de talent fusionnés (doublon)' },
@@ -127,6 +129,7 @@ const ACTIONS: Record<string, ActionDef> = {
   talent_endorsement_created: { family: 'recommandations', label: 'Talent recommandé', masked: true },
   endorsement_reviewed: { family: 'recommandations', label: 'Recommandation de talent revue' },
   endorsement_excluded: { family: 'recommandations', label: 'Recommandation de talent écartée' },
+  provider_created: { family: 'recommandations', label: 'Professionnel ajouté à l’annuaire' },
 
   // Entreprises
   company_endorsement_created: { family: 'entreprises', label: 'Entreprise recommandée', masked: true },
@@ -804,10 +807,20 @@ function describe(log: ActivityLog, ctx: Context): Described {
     }
     case 'talent_consent_public_granted':
     case 'talent_consent_public_revoked':
+      return { detail: null, target: talentTarget(ctx, idOf(meta, 'talentId')), link: '/admin/talents' }
+    // Profil ou, depuis le 2026-11-16, signal de la vitrine.
+    case 'talent_public_hidden':
+    case 'talent_public_unhidden':
     case 'talent_contact_requested':
     case 'talent_contact_request_transmise':
     case 'talent_contact_request_close':
-      return { detail: null, target: talentTarget(ctx, idOf(meta, 'talentId')), link: '/admin/talents' }
+      return {
+        detail: null,
+        target: idOf(meta, 'talentId')
+          ? talentTarget(ctx, idOf(meta, 'talentId'))
+          : signalTarget(ctx, idOf(meta, 'signalId')),
+        link: '/admin/talents',
+      }
     case 'talent_signal_taken':
     case 'talent_endorsement_created':
       return { detail: null, target: signalTarget(ctx, idOf(meta, 'signalId')), link: '/admin/talents' }
@@ -846,6 +859,11 @@ function describe(log: ActivityLog, ctx: Context): Described {
         target: null,
         link: '/admin/talents',
       }
+    }
+
+    case 'provider_created': {
+      const providerId = idOf(meta, 'providerId')
+      return { detail: null, target: null, link: providerId ? `/annuaire/${encodeURIComponent(providerId)}` : '/annuaire' }
     }
 
     case 'company_endorsement_created':

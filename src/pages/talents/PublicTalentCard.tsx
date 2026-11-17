@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChefHat, Hammer, Laptop, MapPin, Scissors, ShieldCheck, Sparkles, Store, UsersRound } from 'lucide-react'
+import { ArrowRight, ChefHat, CircleDashed, Hammer, Laptop, MapPin, Scissors, ShieldCheck, Sparkles, Store, UsersRound } from 'lucide-react'
 import { TrustLevelBadge } from '../../components/trust/TrustLevelBadge'
 import { SECTOR_LABELS } from '../../data/constants'
 import { formatMonth } from '../../lib/format'
@@ -29,14 +29,45 @@ export function sourcesLabel(n: number): string {
   return n > 1 ? `${n} personnes différentes l’ont recommandé·e` : '1 personne l’a recommandé·e'
 }
 
+/** « 3 recommandations · 2 sources indépendantes ». */
+export function countsLabel(t: Pick<PublicTalent, 'recommendationCount' | 'independentSources'>): string {
+  if (t.recommendationCount === 0) return 'Pas encore de recommandation retenue'
+  const recos = `${t.recommendationCount} recommandation${t.recommendationCount > 1 ? 's' : ''}`
+  const sources = `${t.independentSources} source${t.independentSources > 1 ? 's' : ''} indépendante${t.independentSources > 1 ? 's' : ''}`
+  return `${recos} · ${sources}`
+}
+
+/** Nom publié, ou « Talent recommandé » s'il est inconnu ou purgé. */
+export function publicName(t: Pick<PublicTalent, 'name'>): string {
+  return t.name ?? 'Talent recommandé'
+}
+
+/** Badge « Vérifié par OffRec » (profil avec vérification) ou « Non encore vérifié ». */
+export function VerificationBadge({ talent, large }: { talent: PublicTalent; large?: boolean }) {
+  const month = verifiedMonthLabel(talent.verifiedMonth)
+  if (talent.verified) {
+    return (
+      <span className={`ptl-verified${large ? ' ptl-verified-lg' : ''}`}>
+        <ShieldCheck size={large ? 16 : 14} aria-hidden />
+        Vérifié par OffRec{month ? ` · ${month}` : ''}
+      </span>
+    )
+  }
+  return (
+    <span className={`ptl-unverified${large ? ' ptl-verified-lg' : ''}`}>
+      <CircleDashed size={large ? 16 : 14} aria-hidden />
+      Non encore vérifié
+    </span>
+  )
+}
+
 /**
  * Carte de la vitrine : uniquement les champs de la liste blanche publique
- * (métier, secteur, lieu, niveau, sources, points forts, mois de
- * vérification) — aucun nom, aucune photo, aucun contact.
+ * (nom, métier, secteur, lieu, niveau, recommandations et sources, points
+ * forts, vérification) — jamais de téléphone, de photo ni de contact.
  */
 export function PublicTalentCard({ talent, preview }: { talent: PublicTalent; preview?: boolean }) {
   const Icon = SECTOR_ICONS[talent.sector] ?? Sparkles
-  const month = verifiedMonthLabel(talent.verifiedMonth)
   const body = (
     <>
       <div className="ptl-card-head">
@@ -44,8 +75,10 @@ export function PublicTalentCard({ talent, preview }: { talent: PublicTalent; pr
           <Icon size={20} strokeWidth={1.75} />
         </span>
         <div className="ptl-card-title">
-          <h3>{talent.trade}</h3>
-          <p className="ptl-card-sector">{SECTOR_LABELS[talent.sector]}</p>
+          <h3>{publicName(talent)}</h3>
+          <p className="ptl-card-sector">
+            {talent.trade} · {SECTOR_LABELS[talent.sector]}
+          </p>
         </div>
       </div>
       <p className="ptl-card-place">
@@ -56,7 +89,7 @@ export function PublicTalentCard({ talent, preview }: { talent: PublicTalent; pr
         <TrustLevelBadge level={talent.level} />
         <span className="ptl-card-sources">
           <UsersRound size={14} aria-hidden />
-          {sourcesLabel(talent.independentSources)}
+          {countsLabel(talent)}
         </span>
       </div>
       {talent.highlights.length > 0 && (
@@ -69,10 +102,7 @@ export function PublicTalentCard({ talent, preview }: { talent: PublicTalent; pr
         </ul>
       )}
       <div className="ptl-card-foot">
-        <span className="ptl-verified">
-          <ShieldCheck size={14} aria-hidden />
-          Vérifié par un agent OffRec{month ? ` · ${month}` : ''}
-        </span>
+        <VerificationBadge talent={talent} />
         {!preview && (
           <span className="ptl-card-more">
             Voir la fiche <ArrowRight size={14} aria-hidden />

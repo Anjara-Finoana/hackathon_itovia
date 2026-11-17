@@ -289,6 +289,20 @@ a.ptl-card:focus-visible {
   flex-shrink: 0;
 }
 
+/* Talent recommandé, pas encore rencontré par un agent (décision 2026-11-16). */
+.ptl-unverified {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-ink-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ptl-unverified svg {
+  flex-shrink: 0;
+}
+
 .ptl-verified-lg {
   font-size: 0.875rem;
 }

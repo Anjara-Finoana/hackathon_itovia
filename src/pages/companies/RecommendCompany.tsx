@@ -206,8 +206,8 @@ export function RecommendCompany() {
         <p className="rt-private">
           <EyeOff size={16} aria-hidden />
           <span>
-            <strong>Votre nom n’est jamais montré</strong>, ni au public ni à l’entreprise. Aucun commentaire n’est
-            publié : seuls le niveau, le nombre de recommandations et les points forts apparaissent.
+            <strong>Votre nom n’est jamais montré</strong>, ni au public ni à l’entreprise. Votre recommandation
+            (relation, points forts, commentaire, mois) est publiée de façon anonyme ; le document reste privé.
           </span>
         </p>
 
@@ -379,7 +379,10 @@ export function RecommendCompany() {
                 vérifié.
               </span>
             </div>
-            <Field label="Un mot pour OffRec" hint="Jamais publié, jamais transmis à l’entreprise.">
+            <Field
+              label="Votre commentaire"
+              hint="Publié sous votre recommandation, sans votre nom. Pas d’email ni de numéro de téléphone."
+            >
               <Textarea maxLength={1000} value={comment} onChange={(e) => setComment(e.target.value)} />
             </Field>
             <Field label="Votre quartier" hint="Par défaut : celui de votre dernière contribution.">

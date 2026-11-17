@@ -32,10 +32,10 @@ export const CONTACT_STATUS_LABELS: Record<ContactRequestStatus, string> = {
 
 /**
  * Onglet « Talents recommandés » de l'Annuaire (`/annuaire/talents`).
- * Vitrine publique : des personnes du secteur
- * informel recommandées, rencontrées et vérifiées par un agent OffRec, qui
- * ont donné leur accord explicite pour apparaître ici. Aucun nom ni contact :
- * OffRec organise la mise en relation.
+ * Vitrine publique (décision 2026-11-16) : toute personne recommandée par un
+ * membre y figure dès la première recommandation, avec son nom, son métier,
+ * son lieu, sa confiance et un badge « Vérifié par OffRec » / « Non encore
+ * vérifié ». Jamais de contact : OffRec organise la mise en relation.
  */
 export function PublicTalents() {
   const { currentUser, notifications, markNotificationRead, refreshNotifications } = useApp()
@@ -99,13 +99,13 @@ export function PublicTalents() {
           <h2 className="ptl-hero-title">Talents recommandés</h2>
           <p className="ptl-hero-lead">
             Couturières, électriciens, cuisinières, maçons… Des personnes qui n’ont pas toujours de diplôme mais
-            dont le travail parle pour elles : recommandées par des clients et des employeurs, puis rencontrées et
-            vérifiées sur le terrain par un agent OffRec.
+            dont le travail parle pour elles : recommandées par des clients, des employeurs ou des collègues. Le
+            badge « Vérifié par OffRec » signale celles qu’un agent a déjà rencontrées sur le terrain.
           </p>
           <ul className="ptl-promises">
             <li>
               <ShieldCheck size={16} aria-hidden />
-              Savoir-faire vérifié par un agent
+              Vérification sur le terrain par un agent
             </li>
             <li>
               <UsersRound size={16} aria-hidden />
@@ -172,7 +172,7 @@ export function PublicTalents() {
           description={
             filtered
               ? 'Essayez un autre métier ou une autre ville.'
-              : 'Les premières fiches apparaîtront dès que des talents vérifiés auront donné leur accord.'
+              : 'Les premiers talents apparaîtront dès qu’un membre en aura recommandé un.'
           }
         />
       ) : (
@@ -198,11 +198,11 @@ export function PublicTalents() {
             <section className="ptl-section" aria-labelledby="ptl-newcomers">
               <div className="ptl-section-head">
                 <h2 id="ptl-newcomers">
-                  <Sprout size={20} aria-hidden /> Nouveaux talents vérifiés
+                  <Sprout size={20} aria-hidden /> Nouveaux talents
                 </h2>
                 <p>
-                  Rencontrés et vérifiés par un agent OffRec, ils arrivent sur la plateforme : leur réputation se
-                  construit avec chaque nouvelle recommandation.
+                  Fraîchement recommandés ou récemment vérifiés : leur réputation se construit avec chaque nouvelle
+                  recommandation de personnes différentes.
                 </p>
               </div>
               <div className="ptl-grid">
@@ -221,8 +221,8 @@ export function PublicTalents() {
           <div>
             <h2>Besoin de l’un de ces savoir-faire ?</h2>
             <p>
-              Connectez-vous pour décrire votre besoin : l’agent OffRec qui suit le talent vous recontacte et
-              organise la rencontre.
+              Connectez-vous pour décrire votre besoin : un agent OffRec vous recontacte et organise la
+              rencontre.
             </p>
           </div>
           <div className="ptl-cta-actions">

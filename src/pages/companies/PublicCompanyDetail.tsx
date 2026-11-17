@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Building2, CheckCircle2, HeartHandshake, MapPin, SearchX, UsersRound } from 'lucide-react'
 import { FadeUp } from '../../components/motion/Motion'
+import { PublicEndorsementList } from '../../components/trust/PublicEndorsementList'
 import { TrustLevelBadge } from '../../components/trust/TrustLevelBadge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -26,8 +27,11 @@ const LEVEL_EXPLANATIONS = {
 } as const
 
 /**
- * Fiche publique d'une entreprise (`/annuaire/entreprises/:id`, ancienne adresse `/entreprises/:id` redirigée) : mêmes champs que la
- * carte (liste blanche) — jamais d'auteur, de commentaire, de poste ni de date.
+ * Fiche publique d'une entreprise (`/annuaire/entreprises/:id`, ancienne
+ * adresse `/entreprises/:id` redirigée) : mêmes champs que la carte (liste
+ * blanche) plus, depuis la décision 2026-11-16, les recommandations publiées
+ * (relation, points forts, commentaire, mois) — jamais d'auteur, de poste,
+ * de date exacte ni de preuve.
  */
 export function PublicCompanyDetail() {
   const { id = '' } = useParams()
@@ -169,6 +173,14 @@ export function PublicCompanyDetail() {
             </Card>
 
             <Card className="ptl-block">
+              <h2>Recommandations</h2>
+              <PublicEndorsementList
+                items={company.recommendations ?? []}
+                emptyText="Aucune recommandation publiée pour l’instant."
+              />
+            </Card>
+
+            <Card className="ptl-block">
               <h2>Comment OffRec protège les auteurs</h2>
               <ul className="ptl-steps">
                 <li>
@@ -178,12 +190,13 @@ export function PublicCompanyDetail() {
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
-                  Aucun nom d’auteur ni commentaire n’est publié ou transmis à l’entreprise.
+                  Les recommandations sont publiées sans jamais nommer leur auteur ; un commentaire contenant des
+                  coordonnées est masqué.
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
                   Un document (contrat, bulletin de paie…) peut appuyer une recommandation : OffRec le vérifie puis le
-                  supprime.
+                  supprime ; il n’est jamais publié.
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />

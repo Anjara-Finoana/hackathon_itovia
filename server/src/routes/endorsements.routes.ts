@@ -15,14 +15,17 @@ import {
 } from '../lib/proof-upload.js'
 import { userPhoneKeys } from '../lib/endorsement-evidence.js'
 import { OPEN_SIGNAL_STATUSES, resolveSignalTarget, signalExpiry } from '../lib/talent-signals.js'
+import { newPublicRef } from '../lib/public-talents.js'
 import { clip, notifyAgents, notifyUser, roleLabel, scheduleAdminNotification } from '../lib/notify.js'
 import { canonicalCity, cleanCompanyName, companyNameKey } from '../lib/companies.js'
 import { COMPANY_HIGHLIGHTS, TALENT_HIGHLIGHTS } from '../../../src/data/endorsements.js'
 
 /**
  * Recommander un talent : un membre connecté signale une personne qu'il a
- * vue travailler. La recommandation alimente un signal privé, traité par un
- * agent de terrain — jamais un profil, jamais une page publique.
+ * vue travailler. La recommandation alimente un signal traité par un agent
+ * de terrain — jamais un profil. Depuis la décision 2026-11-16, le talent
+ * apparaît dans la vitrine publique (nom, métier, lieu, recommandations avec
+ * auteur anonyme) ; son contact (téléphone, indice) reste privé.
  *
  * La réponse est toujours la même (« Merci… ») : elle ne révèle jamais si la
  * personne est déjà connue d'OffRec.
@@ -183,6 +186,10 @@ router.post(
         proofFileUrl: savedProof?.url ?? null,
       }
 
+      // Décision 2026-11-16 : un nouveau signal entre dans la vitrine publique
+      // dès sa création, sous un identifiant public aléatoire.
+      const signalPublicRef = target.kind === 'new' ? await newPublicRef() : null
+
       const { signalId, endorsementId, createdSignal } = await prisma.$transaction(async (tx) => {
         if (target.kind === 'talent') {
           // Talent déjà suivi : on rattache sans conserver le contact donné.
@@ -223,6 +230,7 @@ router.post(
             phoneKey,
             contactHint: body.contactHint ?? null,
             expiresAt: signalExpiry(now),
+            publicRef: signalPublicRef,
           },
         })
         const e = await tx.endorsement.create({ data: { ...endorsementData, talentSignalId: s.id } })

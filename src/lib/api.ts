@@ -16,6 +16,7 @@ import type {
   AgentProfile,
   ContactRequestStatus,
   PublicTalent,
+  PublicTalentDetail,
   PublicVisibilityState,
   Availability,
   CandidateProfile,
@@ -2164,8 +2165,10 @@ export interface AdminTalent {
   /** Accord de visibilité publique (vitrine) recueilli par l'agent. */
   publicConsentAt: string | null
   publicRef: string | null
-  /** Réellement en ligne (accord + conditions réunies). */
+  /** Réellement en ligne dans la vitrine (recommandé, ou accord + conditions). */
   publicVisible: boolean
+  /** Masqué de la vitrine par un admin (décision 2026-11-16). */
+  publicHiddenAt: string | null
   /** Demandes de contact `nouvelle` ou `transmise`. */
   openContactRequests: number
   agent: { id: string; name: string }
@@ -2180,11 +2183,27 @@ export function apiAdminTalents() {
   return request<{ talents: AdminTalent[] }>('/admin/talents').then((r) => r.talents)
 }
 
-/** Modération : retire la fiche publique d'un talent (jamais la donner). */
+/** Modération : retire l'accord public d'un talent ET le masque de la vitrine (jamais donner l'accord). */
 export function apiAdminRevokePublicVisibility(talentId: string) {
   return request<{ ok: true }>(`/admin/talents/${talentId}/public-visibility`, {
     method: 'PUT',
     body: JSON.stringify({ granted: false }),
+  })
+}
+
+/** Modération : masque ou réaffiche un talent (profil) dans la vitrine, sans toucher à l'accord. */
+export function apiAdminSetTalentHidden(talentId: string, hidden: boolean) {
+  return request<{ ok: true }>(`/admin/talents/${talentId}/public-visibility`, {
+    method: 'PUT',
+    body: JSON.stringify({ hidden }),
+  })
+}
+
+/** Modération : masque ou réaffiche un signal dans la vitrine (décision 2026-11-16). */
+export function apiAdminSetSignalHidden(signalId: string, hidden: boolean) {
+  return request<{ ok: true }>(`/admin/talent-signals/${signalId}/public-visibility`, {
+    method: 'PUT',
+    body: JSON.stringify({ hidden }),
   })
 }
 
@@ -2207,6 +2226,10 @@ export interface AdminTalentSignal {
   mergedIntoId: string | null
   endorsementCount: number
   trust: SubjectTrust
+  /** Vitrine (décision 2026-11-16). */
+  publicRef: string | null
+  publicVisible: boolean
+  publicHiddenAt: string | null
 }
 
 export function apiAdminTalentSignals(status?: TalentSignalStatus) {
@@ -2238,7 +2261,9 @@ export function apiPublicTalents(params: { trade?: string; city?: string } = {})
 }
 
 export function apiPublicTalent(publicRef: string) {
-  return request<{ talent: PublicTalent }>(`/talents-recommandes/${encodeURIComponent(publicRef)}`).then((r) => r.talent)
+  return request<{ talent: PublicTalentDetail }>(`/talents-recommandes/${encodeURIComponent(publicRef)}`).then(
+    (r) => r.talent,
+  )
 }
 
 export function apiRequestTalentContact(publicRef: string, need: string) {
@@ -2276,7 +2301,18 @@ export interface AgentContactRequest {
   need: string
   createdAt: string
   handledAt: string | null
-  talent: { id: string; fullName: string; trade: string; city: string; district: string | null }
+  /** Profil visé ; `null` pour une demande sur un signal non converti. */
+  talent: { id: string; fullName: string; trade: string; city: string; district: string | null } | null
+  /** Signal visé (décision 2026-11-16) ; `pool` : aucun agent ne le tient encore. */
+  signal: {
+    id: string
+    subjectName: string | null
+    trade: string
+    city: string
+    district: string
+    status: TalentSignalStatus
+    pool: boolean
+  } | null
   requester: { role: UserRole; roleLabel: string; name: string | null; email: string; phone: string | null }
 }
 

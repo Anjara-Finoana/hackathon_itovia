@@ -133,7 +133,9 @@ interface AppContextValue {
   currentMemberId: string | null
   membersById: Map<string, Member>
   getProvider: (id: string) => Provider | undefined
-  addProvider: (input: ProviderInput, authorDistrict: string) => Promise<Provider | null>
+  /** Ajout d'un professionnel à l'annuaire : réservé à l'admin (garde serveur
+   *  `requireRole('admin')` sur `POST /directory/providers`). */
+  addProvider: (input: ProviderInput, authorDistrict: string) => Promise<Result & { provider?: Provider }>
   addRecommendation: (input: RecommendationInput) => Promise<Result>
   canRecommendProvider: (providerId: string) => Result
   toggleConfirmation: (recommendationId: string) => Promise<void>
@@ -460,7 +462,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addProvider = useCallback(
     async (input: ProviderInput, authorDistrict: string) => {
-      if (!currentUser) return null
+      if (!currentUser || currentUser.role !== 'admin') {
+        return { ok: false, error: 'Seul un administrateur peut ajouter un professionnel à l’annuaire.' }
+      }
       const payload: CreateProviderPayload = {
         ...input,
         authorDisplayName: displayNameFor(currentUser),
@@ -469,10 +473,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const provider = await apiCreateProvider(payload)
         await loadDirectory()
-        return provider
+        return { ok: true, provider }
       } catch (err) {
-        console.error('addProvider', err)
-        return null
+        return { ok: false, error: errorMessage(err, 'Ajout du professionnel impossible.') }
       }
     },
     [currentUser, loadDirectory],

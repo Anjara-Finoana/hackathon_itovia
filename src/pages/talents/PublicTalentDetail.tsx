@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, MapPin, MessageSquareLock, SearchX, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MapPin, MessageSquareLock, SearchX, Sparkles, UsersRound } from 'lucide-react'
 import { FadeUp } from '../../components/motion/Motion'
+import { PublicEndorsementList } from '../../components/trust/PublicEndorsementList'
 import { TrustLevelBadge } from '../../components/trust/TrustLevelBadge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -13,27 +14,29 @@ import { useApp } from '../../context/AppContext'
 import { SECTOR_LABELS } from '../../data/constants'
 import { TRUST_LEVEL_LABELS } from '../../data/endorsements'
 import { ApiError, apiPublicTalent, apiRequestTalentContact, apiTalentAccountMe } from '../../lib/api'
-import type { PublicTalent } from '../../types'
-import { SECTOR_ICONS, publicPlace, sourcesLabel, verifiedMonthLabel } from './PublicTalentCard'
+import type { PublicTalentDetail as PublicTalentDetailData } from '../../types'
+import { SECTOR_ICONS, VerificationBadge, countsLabel, publicName, publicPlace } from './PublicTalentCard'
 import { CONTACT_REQUESTER_ROLES } from './PublicTalents'
 import './PublicTalents.css'
 
 const LEVEL_EXPLANATIONS = {
-  nouveau: 'Profil récent : rencontré et vérifié par un agent, sa réputation se construit avec les recommandations.',
+  nouveau: 'Réputation en construction : elle grandit avec chaque recommandation de personnes différentes.',
   recommande: 'Recommandé par au moins deux personnes différentes qui l’ont vu travailler.',
   tres_recommande:
     'Recommandé par au moins quatre personnes différentes, dont au moins une avec une preuve vérifiée par un agent, pour un travail récent.',
 } as const
 
 /**
- * Fiche publique d'un talent (`/annuaire/talents/:ref`, ancienne adresse `/talents/:ref` redirigée) : mêmes champs que la carte
- * de la vitrine (liste blanche), et une demande de contact passant par
- * OffRec pour un membre connecté.
+ * Fiche publique d'un talent (`/annuaire/talents/:ref`, ancienne adresse
+ * `/talents/:ref` redirigée) : mêmes champs que la carte de la vitrine
+ * (liste blanche), les recommandations publiées avec auteur anonyme
+ * (décision 2026-11-16), et une demande de contact passant par OffRec pour
+ * un membre connecté.
  */
 export function PublicTalentDetail() {
   const { ref = '' } = useParams()
   const { currentUser } = useApp()
-  const [talent, setTalent] = useState<PublicTalent | null>(null)
+  const [talent, setTalent] = useState<PublicTalentDetailData | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'missing' | 'error'>('loading')
   const [need, setNeed] = useState('')
   const [sending, setSending] = useState(false)
@@ -97,7 +100,7 @@ export function PublicTalentDetail() {
             <EmptyState
               icon={SearchX}
               title="Ce talent n’est pas (ou plus) présenté publiquement"
-              description="La personne a pu retirer son accord, ou le lien n’est plus valable. Découvrez les autres talents recommandés."
+              description="La fiche a pu être retirée, ou le lien n’est plus valable. Découvrez les autres talents recommandés."
             />
           ) : (
             <Card>
@@ -113,7 +116,6 @@ export function PublicTalentDetail() {
   }
 
   const Icon = SECTOR_ICONS[talent.sector] ?? Sparkles
-  const month = verifiedMonthLabel(talent.verifiedMonth)
   const canRequest = currentUser ? CONTACT_REQUESTER_ROLES.includes(currentUser.role) : false
 
   return (
@@ -132,8 +134,10 @@ export function PublicTalentDetail() {
                     <Icon size={26} strokeWidth={1.75} />
                   </span>
                   <div className="ptl-card-title">
-                    <h1>{talent.trade}</h1>
-                    <p className="ptl-card-sector">{SECTOR_LABELS[talent.sector]}</p>
+                    <h1>{publicName(talent)}</h1>
+                    <p className="ptl-card-sector">
+                      {talent.trade} · {SECTOR_LABELS[talent.sector]}
+                    </p>
                   </div>
                 </div>
                 <p className="ptl-card-place">
@@ -144,15 +148,14 @@ export function PublicTalentDetail() {
                   <TrustLevelBadge level={talent.level} />
                   <span className="ptl-card-sources">
                     <UsersRound size={15} aria-hidden />
-                    {sourcesLabel(talent.independentSources)}
+                    {countsLabel(talent)}
                   </span>
                 </div>
                 <p className="ptl-level-note">
                   <strong>{TRUST_LEVEL_LABELS[talent.level]} :</strong> {LEVEL_EXPLANATIONS[talent.level]}
                 </p>
-                <p className="ptl-verified ptl-verified-lg">
-                  <ShieldCheck size={16} aria-hidden />
-                  Vérifié par un agent OffRec{month ? ` · ${month}` : ''}
+                <p>
+                  <VerificationBadge talent={talent} large />
                 </p>
               </Card>
             </FadeUp>
@@ -173,7 +176,15 @@ export function PublicTalentDetail() {
             </Card>
 
             <Card className="ptl-block">
-              <h2>Comment OffRec garantit cette fiche</h2>
+              <h2>Recommandations</h2>
+              <PublicEndorsementList
+                items={talent.recommendations}
+                emptyText="Aucune recommandation publiée pour l’instant."
+              />
+            </Card>
+
+            <Card className="ptl-block">
+              <h2>Comment OffRec présente cette fiche</h2>
               <ul className="ptl-steps">
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
@@ -181,15 +192,17 @@ export function PublicTalentDetail() {
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
-                  Un agent OffRec l’a rencontrée et a vérifié son savoir-faire avec la grille de son métier.
+                  {talent.verified
+                    ? 'Un agent OffRec l’a rencontrée et a vérifié son savoir-faire avec la grille de son métier.'
+                    : 'Aucun agent OffRec ne l’a encore rencontrée : le badge « Non encore vérifié » le signale.'}
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
-                  La personne a donné son accord pour apparaître ici ; elle peut le retirer à tout moment.
+                  Les auteurs des recommandations restent anonymes et leurs preuves ne sont jamais publiées.
                 </li>
                 <li>
                   <CheckCircle2 size={16} aria-hidden />
-                  Son nom et ses coordonnées ne sont jamais publiés : OffRec organise le contact.
+                  Ses coordonnées ne sont jamais publiées : OffRec organise le contact.
                 </li>
               </ul>
             </Card>
@@ -203,8 +216,8 @@ export function PublicTalentDetail() {
               {!currentUser ? (
                 <>
                   <p className="ptl-muted">
-                    Connectez-vous et décrivez votre besoin : l’agent OffRec qui suit ce talent vous recontacte pour
-                    organiser la rencontre.
+                    Connectez-vous et décrivez votre besoin : un agent OffRec vous recontacte pour organiser la
+                    rencontre.
                   </p>
                   <div className="ptl-contact-actions">
                     <Link to="/connexion" state={{ from: { pathname: `/annuaire/talents/${talent.publicRef}` } }}>
@@ -258,7 +271,7 @@ export function PublicTalentDetail() {
                     {sending ? 'Envoi…' : 'Envoyer ma demande à OffRec'}
                   </Button>
                   <p className="ptl-fineprint">
-                    Votre demande est lue par l’agent OffRec du talent, jamais publiée. Le talent n’est pas contacté
+                    Votre demande est lue par un agent OffRec, jamais publiée. Le talent n’est pas contacté
                     directement par la plateforme.
                   </p>
                 </form>

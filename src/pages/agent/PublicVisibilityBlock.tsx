@@ -22,7 +22,9 @@ interface Props {
 /**
  * Bloc « Visibilité publique » de la fiche talent (agent) : l'accord de
  * fiche publique est DISTINCT de l'accord de création, se recueille
- * explicitement auprès de la personne, et se retire à tout moment.
+ * explicitement auprès de la personne, et se retire à tout moment. Depuis la
+ * décision 2026-11-16, un talent recommandé est publié même sans cet accord ;
+ * seul un admin peut alors le masquer.
  */
 export function PublicVisibilityBlock({ talentId, visibility, preview, onChanged }: Props) {
   const [confirm, setConfirm] = useState<'grant' | 'revoke' | null>(null)
@@ -61,9 +63,11 @@ export function PublicVisibilityBlock({ talentId, visibility, preview, onChanged
         {status}
       </div>
       <p className="tdet-muted tpv-intro">
-        La vitrine « Talents recommandés » met en avant ce talent auprès des visiteurs. Il faut l’
-        <strong>accord explicite</strong> de la personne, distinct de celui donné pour son profil OffRec. Elle peut
-        le retirer à tout moment : retirez alors la fiche.
+        La vitrine « Talents recommandés » met en avant ce talent auprès des visiteurs. Depuis le 16 novembre 2026,
+        <strong> tout talent recommandé y figure</strong> (nom, métier, lieu, recommandations sans auteur), même sans
+        accord public. L’<strong>accord explicite</strong> de la personne reste nécessaire pour publier un talent
+        vérifié sans recommandation. Pour retirer de la vitrine un talent recommandé, adressez-vous à un
+        administrateur.
       </p>
 
       {visibility.granted && visibility.publicConsentAt && (
@@ -86,8 +90,7 @@ export function PublicVisibilityBlock({ talentId, visibility, preview, onChanged
         </p>
         <PublicTalentCard talent={preview} preview />
         <p className="tdet-muted tpv-never">
-          Jamais publiés : nom, téléphone, photo, agent, commentaires, libellés des travaux, auteurs des
-          recommandations.
+          Jamais publiés : téléphone, photo, agent, libellés des travaux, preuves, auteurs des recommandations.
         </p>
       </div>
 
@@ -150,7 +153,8 @@ export function PublicVisibilityBlock({ talentId, visibility, preview, onChanged
           <p className="tdet-muted tpv-modal-text">
             La fiche disparaît immédiatement de la vitrine et son lien actuel ne fonctionnera plus. Pour la republier,
             il faudra un nouvel accord de la personne (un nouveau lien sera créé). Les demandes de contact déjà reçues
-            restent dans votre liste.
+            restent dans votre liste. Si le talent a des recommandations, il reste dans la vitrine sous un nouveau
+            lien : seul un administrateur peut l’en masquer.
           </p>
           {error && <p className="tpv-error">{error}</p>}
           <div className="tpv-actions">

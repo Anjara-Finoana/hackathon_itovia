@@ -217,6 +217,17 @@ router.post('/talents', async (req, res, next) => {
           where: { id: { in: family } },
           data: { talentId: created.id, subjectName: null, contactPhone: null, phoneKey: null, contactHint: null, contactPurgedAt: now },
         })
+        // Vitrine (décision 2026-11-16) : le profil remplace le signal (pas de
+        // doublon). Les demandes de contact du signal suivent le profil, et un
+        // masquage admin du signal est repris par le profil.
+        await tx.talentContactRequest.updateMany({
+          where: { signalId: { in: family }, talentId: null },
+          data: { talentId: created.id },
+        })
+        const root = await tx.talentSignal.findUnique({ where: { id: fromSignalId }, select: { publicHiddenAt: true } })
+        if (root?.publicHiddenAt) {
+          await tx.talentProfile.update({ where: { id: created.id }, data: { publicHiddenAt: root.publicHiddenAt } })
+        }
         await tx.auditLog.create({
           data: { userId: me, action: 'talent_signal_converted', metadata: { signalId: fromSignalId, talentId: created.id, signals: family.length } },
         })

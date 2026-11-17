@@ -17,6 +17,7 @@ import { Directory } from './pages/directory/Directory'
 import { DirectoryTabs, LegacyDirectoryRedirect } from './pages/directory/DirectoryTabs'
 import { ProviderDetail } from './pages/directory/ProviderDetail'
 import { RecommendationForm } from './pages/directory/RecommendationForm'
+import { AddProviderForm } from './pages/directory/AddProviderForm'
 import { RecruiterDashboard } from './pages/recruiter/RecruiterDashboard'
 import { RecruiterOpportunityForm } from './pages/recruiter/RecruiterOpportunityForm'
 import { RecruiterOpportunityList } from './pages/recruiter/RecruiterOpportunityList'
@@ -126,6 +127,16 @@ export default function App() {
               element={
                 <ProtectedRoute role={['candidate', 'particulier', 'talent']}>
                   <RecommendCompany />
+                </ProtectedRoute>
+              }
+            />
+            {/* Ajouter un professionnel : admin seulement (garde serveur
+                `requireRole('admin')` sur `POST /directory/providers`). */}
+            <Route
+              path="annuaire/ajouter-un-professionnel"
+              element={
+                <ProtectedRoute role="admin">
+                  <AddProviderForm />
                 </ProtectedRoute>
               }
             />

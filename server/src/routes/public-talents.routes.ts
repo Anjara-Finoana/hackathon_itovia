@@ -7,18 +7,19 @@ import {
   publicTalentListQuerySchema,
   talentContactRequestInputSchema,
 } from '../lib/validation.js'
-import { PUBLIC_TALENT_WHERE, findPublicTalent, getPublicTalent, listPublicTalents } from '../lib/public-talents.js'
-import { clip, notifyUser, roleLabel, scheduleAdminNotification } from '../lib/notify.js'
+import { findPublicEntry, getPublicTalent, listPublicTalents, stillPublicRefs } from '../lib/public-talents.js'
+import { clip, notifyAgents, notifyUser, roleLabel, scheduleAdminNotification } from '../lib/notify.js'
 
 /**
  * Vitrine publique « Talents recommandés » (`/api/talents-recommandes`).
- * Lecture SANS authentification : seuls les talents dont l'accord explicite
- * de visibilité publique a été recueilli par leur agent apparaissent, et
- * chaque réponse passe par la liste blanche `toPublicTalent()`.
+ * Lecture SANS authentification. Décision 2026-11-16 : tout talent
+ * recommandé apparaît (profil créé par un agent ou simple signal), chaque
+ * réponse passant par la liste blanche de `lib/public-talents.ts`.
  *
  * Contact : OffRec reste l'intermédiaire obligatoire. Un utilisateur
- * connecté (hors agent et admin) décrit son besoin ; l'agent du talent traite
- * la demande et organise le contact hors ligne. Le talent n'est jamais mis en
+ * connecté (hors agent et admin) décrit son besoin ; l'agent du talent (ou,
+ * pour un signal, l'agent qui le tient — sinon le pool des agents) traite la
+ * demande et organise le contact hors ligne. Le talent n'est jamais mis en
  * relation directement par la plateforme.
  */
 const router = Router()
@@ -77,28 +78,33 @@ router.get('/mes-demandes', requireRole(...REQUESTER_ROLES), async (req, res, ne
         createdAt: true,
         handledAt: true,
         talentId: true,
+        signalId: true,
         talent: { select: { trade: true, city: true, district: true } },
+        signal: { select: { trade: true, city: true, district: true } },
       },
     })
-    const stillPublic = await prisma.talentProfile.findMany({
-      where: { ...PUBLIC_TALENT_WHERE, id: { in: [...new Set(requests.map((r) => r.talentId))] } },
-      select: { id: true, publicRef: true },
-    })
-    const refOf = new Map(stillPublic.map((t) => [t.id, t.publicRef]))
+    const refOf = await stillPublicRefs(
+      [...new Set(requests.flatMap((r) => (r.talentId ? [r.talentId] : [])))],
+      [...new Set(requests.flatMap((r) => (!r.talentId && r.signalId ? [r.signalId] : [])))],
+    )
     res.json({
-      requests: requests.map((r) => ({
-        id: r.id,
-        need: r.need,
-        status: r.status,
-        createdAt: r.createdAt.toISOString(),
-        handledAt: r.handledAt?.toISOString() ?? null,
-        talent: {
-          trade: r.talent.trade,
-          city: r.talent.city,
-          district: r.talent.district ?? null,
-          publicRef: refOf.get(r.talentId) ?? null,
-        },
-      })),
+      requests: requests.map((r) => {
+        const subject = r.talent ?? r.signal
+        const key = r.talentId ?? r.signalId
+        return {
+          id: r.id,
+          need: r.need,
+          status: r.status,
+          createdAt: r.createdAt.toISOString(),
+          handledAt: r.handledAt?.toISOString() ?? null,
+          talent: {
+            trade: subject?.trade ?? 'Talent recommandé',
+            city: subject?.city ?? '',
+            district: subject?.district ?? null,
+            publicRef: key ? (refOf.get(key) ?? null) : null,
+          },
+        }
+      }),
     })
   } catch (err) {
     next(err)
@@ -123,26 +129,29 @@ router.get('/:publicRef', readLimiter, async (req, res, next) => {
 router.post('/:publicRef/contact', contactLimiter, requireRole(...REQUESTER_ROLES), async (req, res, next) => {
   try {
     const ref = req.params.publicRef
-    const talent = PUBLIC_REF_PATTERN.test(ref) ? await findPublicTalent(ref) : null
-    if (!talent) {
+    const entry = PUBLIC_REF_PATTERN.test(ref) ? await findPublicEntry(ref) : null
+    if (!entry) {
       res.status(404).json(NOT_FOUND)
       return
     }
     const body = talentContactRequestInputSchema.parse(req.body)
     const me = req.session!.sub
-    if (talent.accountProfile?.userId === me) {
+    if (entry.accountUserId === me) {
       res.status(400).json({ error: 'Vous ne pouvez pas demander à être mis en contact avec vous-même.' })
       return
     }
+    // Profil : la demande vise le talent. Signal non converti : elle vise le
+    // signal (`talentId` renseigné à la conversion, suit une fusion).
+    const target = entry.kind === 'talent' ? { talentId: entry.id } : { signalId: entry.id }
     const since = new Date(Date.now() - 24 * 3600 * 1000)
     const [open, lastDay] = await Promise.all([
       prisma.talentContactRequest.count({
-        where: { requesterId: me, talentId: talent.id, status: { in: ['nouvelle', 'transmise'] } },
+        where: { requesterId: me, ...target, status: { in: ['nouvelle', 'transmise'] } },
       }),
       prisma.talentContactRequest.count({ where: { requesterId: me, createdAt: { gte: since } } }),
     ])
     if (open > 0) {
-      res.status(409).json({ error: 'Vous avez déjà une demande en cours pour ce talent : l’agent OffRec la traite.' })
+      res.status(409).json({ error: 'Vous avez déjà une demande en cours pour ce talent : un agent OffRec la traite.' })
       return
     }
     if (lastDay >= MAX_REQUESTS_PER_DAY) {
@@ -150,31 +159,47 @@ router.post('/:publicRef/contact', contactLimiter, requireRole(...REQUESTER_ROLE
       return
     }
     const request = await prisma.talentContactRequest.create({
-      data: { talentId: talent.id, requesterId: me, need: body.need },
+      data: { ...target, requesterId: me, need: body.need },
       select: { id: true, status: true, createdAt: true },
     })
     await prisma.auditLog.create({
-      data: { userId: me, action: 'talent_contact_requested', metadata: { talentId: talent.id, requestId: request.id } },
+      data: {
+        userId: me,
+        action: 'talent_contact_requested',
+        metadata: { ...target, requestId: request.id },
+      },
     })
     res.status(201).json({
       request: { id: request.id, status: request.status, createdAt: request.createdAt.toISOString() },
-      message: 'Demande envoyée : l’agent OffRec qui suit ce talent vous recontacte pour organiser la mise en relation.',
+      message: 'Demande envoyée : un agent OffRec vous recontacte pour organiser la mise en relation.',
     })
     // Ni le nom du talent, ni celui du demandeur, ni le besoin (texte libre) :
-    // ils se lisent dans « Demandes pour mes talents ».
+    // ils se lisent dans « Demandes de contact ».
     const who = roleLabel(req.session!.role)
-    void notifyUser({
-      userId: talent.agentId,
-      event: 'talent_contact_requested',
-      title: 'Nouvelle demande de contact',
-      message: `${who} souhaite contacter un de vos talents (${clip(talent.trade, 40)}, ${clip(talent.city, 40)}) via la vitrine. Organisez la mise en relation.`,
-      link: '/agent/demandes-talents',
-    })
+    const place = `${clip(entry.source.trade, 40)}, ${clip(entry.source.city, 40)}`
+    if (entry.agentId) {
+      void notifyUser({
+        userId: entry.agentId,
+        event: 'talent_contact_requested',
+        title: 'Nouvelle demande de contact',
+        message: `${who} souhaite contacter un talent que vous suivez (${place}) via la vitrine. Organisez la mise en relation.`,
+        link: '/agent/demandes-talents',
+      })
+    } else {
+      // Signal sans agent : le pool des agents (de la province, sinon tous).
+      void notifyAgents({
+        event: 'talent_contact_requested',
+        province: entry.province ?? '',
+        title: 'Demande de contact à prendre',
+        message: `${who} souhaite contacter un talent recommandé (${place}) qu’aucun agent ne suit encore. Le premier agent disponible organise la mise en relation.`,
+        link: '/agent/demandes-talents',
+      })
+    }
     scheduleAdminNotification({
       event: 'talent_contact_requested',
       category: 'agent',
       title: 'Demande de contact d’un talent',
-      message: `${who} a demandé à contacter un talent de la vitrine (${clip(talent.trade, 40)}, ${clip(talent.city, 40)}). Son agent doit traiter la demande.`,
+      message: `${who} a demandé à contacter un talent de la vitrine (${place}). ${entry.agentId ? 'Son agent' : 'Un agent du pool'} doit traiter la demande.`,
       link: '/admin/talents',
     })
   } catch (err) {

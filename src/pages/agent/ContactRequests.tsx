@@ -24,6 +24,13 @@ const STATUS_LABELS: Record<ContactRequestStatus, string> = {
   close: 'Close',
 }
 
+/** « Quartier, Ville · » du profil ou du signal visé. */
+function placeOf(r: AgentContactRequest): string {
+  const subject = r.talent ?? r.signal
+  if (!subject) return ''
+  return `${subject.district ? `${subject.district}, ` : ''}${subject.city} · `
+}
+
 const STATUS_VARIANT: Record<ContactRequestStatus, 'primary' | 'success' | 'muted'> = {
   nouvelle: 'primary',
   transmise: 'success',
@@ -138,7 +145,7 @@ export function ContactRequests() {
           <EmptyState
             icon={MessageSquareLock}
             title="Aucune demande ici"
-            description="Les demandes envoyées depuis la vitrine « Talents recommandés » pour vos talents apparaîtront ici."
+            description="Les demandes envoyées depuis la vitrine « Talents recommandés » pour vos talents, vos signaux et les signaux encore sans agent apparaîtront ici."
           />
         ) : (
           <div className="pcr-list">
@@ -146,14 +153,28 @@ export function ContactRequests() {
               <Card key={r.id} className="pcr-card">
                 <div className="pcr-head">
                   <div className="pcr-head-main">
-                    <Link to={`/agent/talents/${r.talent.id}`} className="pcr-talent">
-                      {r.talent.fullName} · {r.talent.trade}
-                    </Link>
+                    {r.talent ? (
+                      <Link to={`/agent/talents/${r.talent.id}`} className="pcr-talent">
+                        {r.talent.fullName} · {r.talent.trade}
+                      </Link>
+                    ) : r.signal ? (
+                      <Link to={`/agent/recommandations/${r.signal.id}`} className="pcr-talent">
+                        {r.signal.subjectName ?? 'Talent recommandé'} · {r.signal.trade}
+                      </Link>
+                    ) : (
+                      <span className="pcr-talent">Talent recommandé</span>
+                    )}
                     <p className="pcr-meta">
-                      {r.talent.district ? `${r.talent.district}, ` : ''}
-                      {r.talent.city} · reçue le {formatDateTime(r.createdAt)}
+                      {placeOf(r)}reçue le {formatDateTime(r.createdAt)}
                       {r.handledAt ? ` · traitée le ${formatDateTime(r.handledAt)}` : ''}
                     </p>
+                    {r.signal && (
+                      <p className="pcr-meta">
+                        {r.signal.pool
+                          ? 'Signal non encore pris en charge : la demande est ouverte à tous les agents.'
+                          : 'Signal que vous suivez, pas encore de profil.'}
+                      </p>
+                    )}
                   </div>
                   <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABELS[r.status]}</Badge>
                 </div>

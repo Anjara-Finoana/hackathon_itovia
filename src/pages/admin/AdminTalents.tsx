@@ -12,7 +12,8 @@ import { TALENT_STATUS_LABELS } from '../../data/endorsements'
 import { SECTOR_LABELS } from '../../data/constants'
 import {
   ApiError,
-  apiAdminRevokePublicVisibility,
+  apiAdminSetSignalHidden,
+  apiAdminSetTalentHidden,
   apiAdminTalentSignals,
   apiAdminTalents,
   type AdminTalent,
@@ -27,10 +28,20 @@ type Tab = 'talents' | 'signals'
 
 const SIGNAL_FILTERS: (TalentSignalStatus | '')[] = ['', 'nouveau', 'pris_en_charge', 'injoignable', 'converti', 'refuse', 'expire', 'fusionne']
 
+/** Entrée de la vitrine à masquer ou réafficher (profil ou signal). */
+interface VisibilityTarget {
+  kind: 'talent' | 'signal'
+  id: string
+  label: string
+  hide: boolean
+}
+
 /**
  * Vue admin en lecture seule : les profils de talents (créés et modifiés par
  * leur agent uniquement, §7.3.14) et les signaux « talent recommandé ». Le
- * contact d'un signal est visible ici — jamais public.
+ * contact d'un signal (téléphone, indice) est visible ici — jamais public.
+ * Seule action : masquer / réafficher une entrée de la vitrine (décision
+ * 2026-11-16 : profils et signaux recommandés y figurent d'office).
  */
 export function AdminTalents() {
   const [tab, setTab] = useState<Tab>('talents')
@@ -39,22 +50,28 @@ export function AdminTalents() {
   const [counts, setCounts] = useState<Partial<Record<TalentSignalStatus, number>>>({})
   const [filter, setFilter] = useState<TalentSignalStatus | ''>('')
   const [error, setError] = useState('')
-  const [revoking, setRevoking] = useState<AdminTalent | null>(null)
+  const [target, setTarget] = useState<VisibilityTarget | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
 
-  const revoke = async () => {
-    if (!revoking) return
+  const applyVisibility = async () => {
+    if (!target) return
     setBusy(true)
     try {
-      await apiAdminRevokePublicVisibility(revoking.id)
-      setNotice('Fiche publique retirée. L’agent du talent en est informé.')
-      loadTalents()
+      if (target.kind === 'talent') {
+        await apiAdminSetTalentHidden(target.id, target.hide)
+        setNotice(target.hide ? 'Talent masqué de la vitrine. Son agent en est informé.' : 'Talent réaffiché dans la vitrine.')
+        loadTalents()
+      } else {
+        await apiAdminSetSignalHidden(target.id, target.hide)
+        setNotice(target.hide ? 'Signal masqué de la vitrine.' : 'Signal réaffiché dans la vitrine.')
+        loadSignals()
+      }
     } catch (err) {
-      setNotice(err instanceof ApiError ? err.message : 'Retrait impossible.')
+      setNotice(err instanceof ApiError ? err.message : 'Modification impossible.')
     } finally {
       setBusy(false)
-      setRevoking(null)
+      setTarget(null)
     }
   }
 
@@ -155,26 +172,36 @@ export function AdminTalents() {
                     <div>
                       <dt>Fiche publique</dt>
                       <dd>
-                        {t.publicVisible && t.publicRef ? (
+                        {t.publicHiddenAt ? (
+                          `masquée par un admin le ${formatDate(t.publicHiddenAt)}`
+                        ) : t.publicVisible && t.publicRef ? (
                           <>
                             <Link to={`/annuaire/talents/${t.publicRef}`} className="adt-link">
                               en ligne
-                            </Link>{' '}
-                            · accord du {formatDate(t.publicConsentAt!)}
+                            </Link>
+                            {t.publicConsentAt ? ` · accord du ${formatDate(t.publicConsentAt)}` : ' · recommandé'}
                           </>
+                        ) : t.publicVisible ? (
+                          'en ligne'
                         ) : t.publicConsentAt ? (
-                          `accord du ${formatDate(t.publicConsentAt)} · masquée (conditions non réunies)`
+                          `accord du ${formatDate(t.publicConsentAt)} · non publiée (conditions non réunies)`
                         ) : (
                           'non publiée'
                         )}
                         {t.openContactRequests > 0
                           ? ` · ${t.openContactRequests} demande${t.openContactRequests > 1 ? 's' : ''} de contact en cours`
                           : ''}
-                        {t.publicConsentAt && (
+                        {(t.publicHiddenAt || t.publicVisible) && (
                           <>
                             {' '}
-                            <button type="button" className="adt-inline-btn" onClick={() => setRevoking(t)}>
-                              Retirer
+                            <button
+                              type="button"
+                              className="adt-inline-btn"
+                              onClick={() =>
+                                setTarget({ kind: 'talent', id: t.id, label: `${t.fullName} · ${t.trade}`, hide: !t.publicHiddenAt })
+                              }
+                            >
+                              {t.publicHiddenAt ? 'Réafficher' : 'Masquer'}
                             </button>
                           </>
                         )}
@@ -208,17 +235,18 @@ export function AdminTalents() {
             </div>
           ))}
 
-        {revoking && (
-          <Modal title="Retirer la fiche publique" onClose={() => setRevoking(null)}>
+        {target && (
+          <Modal title={target.hide ? 'Masquer de la vitrine' : 'Réafficher dans la vitrine'} onClose={() => setTarget(null)}>
             <p className="adt-muted" style={{ marginBottom: '1rem', lineHeight: 1.55 }}>
-              Modération : la fiche « {revoking.trade} » disparaît immédiatement de la vitrine et son lien ne fonctionne
-              plus. Seul l’agent pourra la republier, avec un nouvel accord de la personne.
+              {target.hide
+                ? `Modération : « ${target.label} » disparaît immédiatement de la vitrine « Talents recommandés » et son lien ne fonctionne plus, jusqu’à ce qu’un admin le réaffiche.`
+                : `« ${target.label} » réapparaît dans la vitrine « Talents recommandés » s’il remplit encore les conditions (au moins une recommandation retenue).`}
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <Button variant="danger" disabled={busy} onClick={revoke}>
-                Retirer la fiche
+              <Button variant={target.hide ? 'danger' : 'primary'} disabled={busy} onClick={applyVisibility}>
+                {target.hide ? 'Masquer' : 'Réafficher'}
               </Button>
-              <Button variant="ghost" onClick={() => setRevoking(null)}>
+              <Button variant="ghost" onClick={() => setTarget(null)}>
                 Annuler
               </Button>
             </div>
@@ -236,8 +264,9 @@ export function AdminTalents() {
               ))}
             </div>
             <p className="adt-private">
-              <Lock size={14} aria-hidden /> Contacts privés : visibles des agents et des admins uniquement, effacés à la
-              conversion, au refus ou après 60 jours sans suite.
+              <Lock size={14} aria-hidden /> Téléphone et indice privés : visibles des agents et des admins uniquement,
+              effacés à la conversion, au refus ou après 60 jours sans suite. Le nom et les recommandations sont publics
+              dans la vitrine (décision 2026-11-16).
             </p>
             {!signals ? (
               <Loading />
@@ -266,6 +295,45 @@ export function AdminTalents() {
                       <div>
                         <dt>Recommandé</dt>
                         <dd>{s.endorsementCount} fois</dd>
+                      </div>
+                      <div>
+                        <dt>Vitrine</dt>
+                        <dd>
+                          {s.publicHiddenAt ? (
+                            `masqué par un admin le ${formatDate(s.publicHiddenAt)}`
+                          ) : s.publicVisible && s.publicRef ? (
+                            <Link to={`/annuaire/talents/${s.publicRef}`} className="adt-link">
+                              en ligne
+                            </Link>
+                          ) : s.publicVisible ? (
+                            'en ligne'
+                          ) : s.status === 'converti' ? (
+                            'remplacé par le profil'
+                          ) : s.status === 'fusionne' ? (
+                            'publié via le signal cible'
+                          ) : (
+                            'non publié'
+                          )}
+                          {(s.publicHiddenAt || s.publicVisible) && (
+                            <>
+                              {' '}
+                              <button
+                                type="button"
+                                className="adt-inline-btn"
+                                onClick={() =>
+                                  setTarget({
+                                    kind: 'signal',
+                                    id: s.id,
+                                    label: `${s.subjectName ?? 'Talent recommandé'} · ${s.trade}`,
+                                    hide: !s.publicHiddenAt,
+                                  })
+                                }
+                              >
+                                {s.publicHiddenAt ? 'Réafficher' : 'Masquer'}
+                              </button>
+                            </>
+                          )}
+                        </dd>
                       </div>
                       <div>
                         <dt>Contact</dt>

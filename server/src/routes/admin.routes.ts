@@ -5,12 +5,13 @@ import { requireRole } from '../middleware/rbac.js'
 import {
   adminHiringStatsQuerySchema,
   adminPublicVisibilitySchema,
+  adminSignalVisibilitySchema,
   createAgentSchema,
   cvVerifierRolesSchema,
   moderationResolveSchema,
   researchExportSchema,
 } from '../lib/validation.js'
-import { PUBLIC_TALENT_WHERE } from '../lib/public-talents.js'
+import { PUBLIC_SIGNAL_WHERE, PUBLIC_TALENT_WHERE } from '../lib/public-talents.js'
 import { clip, notifyUser } from '../lib/notify.js'
 import { GRANTABLE_CV_VERIFIER_ROLES, listCvVerifierRoles } from '../lib/cv-access.js'
 import { loadSignalTrust, loadTalentTrust, verificationSummary } from '../lib/talent-trust.js'
@@ -242,6 +243,8 @@ router.get('/talents', async (_req, res, next) => {
         publicConsentAt: t.publicConsentAt?.toISOString() ?? null,
         publicRef: t.publicRef,
         publicVisible: visibleIds.has(t.id),
+        // Masquage admin de la vitrine (décision 2026-11-16).
+        publicHiddenAt: t.publicHiddenAt?.toISOString() ?? null,
         openContactRequests: openByTalent.get(t.id) ?? 0,
         agent: { id: t.agent.id, name: t.agent.agentProfile?.fullName ?? t.agent.email },
         verification: verificationSummary(t.verifications[0]),
@@ -257,34 +260,77 @@ router.get('/talents', async (_req, res, next) => {
 })
 
 /**
- * Modération : l'admin peut RETIRER une fiche publique (jamais la donner —
- * l'accord se recueille auprès de la personne, par son agent). Même effet
- * qu'un retrait par l'agent : accord et `publicRef` effacés, ancien lien mort.
+ * Modération de la vitrine. `{ granted: false }` : retire l'accord public
+ * (accord et `publicRef` effacés, ancien lien mort) ET masque la fiche — un
+ * talent recommandé resterait sinon publié (décision 2026-11-16).
+ * `{ hidden: true | false }` : masque ou réaffiche sans toucher à l'accord ;
+ * l'admin ne donne jamais un accord à la place de la personne.
  */
 router.put('/talents/:id/public-visibility', async (req, res, next) => {
   try {
-    adminPublicVisibilitySchema.parse(req.body)
+    const body = adminPublicVisibilitySchema.parse(req.body)
     const talent = await prisma.talentProfile.findUnique({
       where: { id: req.params.id },
-      select: { id: true, agentId: true, trade: true, city: true, publicConsentAt: true },
+      select: { id: true, agentId: true, trade: true, city: true, publicConsentAt: true, publicHiddenAt: true },
     })
     if (!talent) {
       res.status(404).json({ error: 'Talent introuvable.' })
       return
     }
-    if (talent.publicConsentAt) {
-      const me = req.session!.sub
+    const me = req.session!.sub
+    const hide = 'granted' in body ? true : body.hidden
+    if ('granted' in body && talent.publicConsentAt) {
       await prisma.$transaction([
         prisma.talentProfile.update({ where: { id: talent.id }, data: { publicConsentAt: null, publicRef: null } }),
         prisma.auditLog.create({ data: { userId: me, action: 'talent_consent_public_revoked', metadata: { talentId: talent.id } } }),
       ])
+    }
+    if (hide !== Boolean(talent.publicHiddenAt)) {
+      await prisma.$transaction([
+        prisma.talentProfile.update({ where: { id: talent.id }, data: { publicHiddenAt: hide ? new Date() : null } }),
+        prisma.auditLog.create({
+          data: { userId: me, action: hide ? 'talent_public_hidden' : 'talent_public_unhidden', metadata: { talentId: talent.id } },
+        }),
+      ])
       void notifyUser({
         userId: talent.agentId,
-        event: 'talent_public_revoked_by_admin',
-        title: 'Fiche publique retirée',
-        message: `Un administrateur a retiré la fiche publique d’un de vos talents (${clip(talent.trade, 40)}, ${clip(talent.city, 40)}). Un nouvel accord de la personne est nécessaire pour la republier.`,
+        event: hide ? 'talent_public_revoked_by_admin' : 'talent_public_restored_by_admin',
+        title: hide ? 'Fiche publique retirée' : 'Fiche publique réaffichée',
+        message: hide
+          ? `Un administrateur a retiré de la vitrine la fiche d’un de vos talents (${clip(talent.trade, 40)}, ${clip(talent.city, 40)}).`
+          : `Un administrateur a réaffiché dans la vitrine la fiche d’un de vos talents (${clip(talent.trade, 40)}, ${clip(talent.city, 40)}).`,
         link: `/agent/talents/${talent.id}`,
       })
+    }
+    res.json({ ok: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Masquer / réafficher un signal dans la vitrine (décision 2026-11-16). Le
+ * masquage suit le signal à sa conversion (repris par le profil créé).
+ */
+router.put('/talent-signals/:id/public-visibility', async (req, res, next) => {
+  try {
+    const { hidden } = adminSignalVisibilitySchema.parse(req.body)
+    const signal = await prisma.talentSignal.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, publicHiddenAt: true },
+    })
+    if (!signal) {
+      res.status(404).json({ error: 'Signal introuvable.' })
+      return
+    }
+    if (hidden !== Boolean(signal.publicHiddenAt)) {
+      const me = req.session!.sub
+      await prisma.$transaction([
+        prisma.talentSignal.update({ where: { id: signal.id }, data: { publicHiddenAt: hidden ? new Date() : null } }),
+        prisma.auditLog.create({
+          data: { userId: me, action: hidden ? 'talent_public_hidden' : 'talent_public_unhidden', metadata: { signalId: signal.id } },
+        }),
+      ])
     }
     res.json({ ok: true })
   } catch (err) {
@@ -310,7 +356,14 @@ router.get('/talent-signals', async (req, res, next) => {
       }),
       prisma.talentSignal.groupBy({ by: ['status'], _count: { _all: true } }),
     ])
-    const trust = await loadSignalTrust(signals.map((s) => s.id))
+    const [trust, publicCandidates] = await Promise.all([
+      loadSignalTrust(signals.map((s) => s.id)),
+      prisma.talentSignal.findMany({
+        where: { ...PUBLIC_SIGNAL_WHERE, id: { in: signals.map((s) => s.id) } },
+        select: { id: true },
+      }),
+    ])
+    const publicIds = new Set(publicCandidates.map((p) => p.id))
     res.json({
       counts: Object.fromEntries(grouped.map((g) => [g.status, g._count._all])),
       signals: signals.map((s) => {
@@ -334,6 +387,10 @@ router.get('/talent-signals', async (req, res, next) => {
           mergedIntoId: s.mergedIntoId,
           endorsementCount: t.trust.recommendationCount,
           trust: t.trust,
+          // Vitrine (décision 2026-11-16) : en ligne, masquée par un admin.
+          publicRef: s.publicRef,
+          publicVisible: publicIds.has(s.id) && t.rows.some((r) => !r.excludedAt),
+          publicHiddenAt: s.publicHiddenAt?.toISOString() ?? null,
         }
       }),
     })
@@ -357,15 +414,27 @@ router.get('/reports', async (_req, res, next) => {
     const talents = talentIds.length
       ? await prisma.talentProfile.findMany({
           where: { id: { in: talentIds } },
-          select: { id: true, trade: true, city: true, district: true, publicConsentAt: true },
+          select: { id: true, trade: true, city: true, district: true, publicHiddenAt: true },
         })
       : []
-    const talentLabel = new Map(
-      talents.map((t) => [
+    // Depuis le 2026-11-16, `targetId` peut aussi être l'id d'un signal
+    // (entrée de la vitrine sans profil).
+    const signalTargets = talentIds.length
+      ? await prisma.talentSignal.findMany({
+          where: { id: { in: talentIds } },
+          select: { id: true, trade: true, city: true, district: true, publicHiddenAt: true },
+        })
+      : []
+    const talentLabel = new Map<string, string>([
+      ...talents.map((t): [string, string] => [
         t.id,
-        `${t.trade} · ${t.district ? `${t.district}, ` : ''}${t.city}${t.publicConsentAt ? '' : ' (fiche déjà retirée)'}`,
+        `${t.trade} · ${t.district ? `${t.district}, ` : ''}${t.city}${t.publicHiddenAt ? ' (fiche déjà masquée)' : ''}`,
       ]),
-    )
+      ...signalTargets.map((t): [string, string] => [
+        t.id,
+        `Signal · ${t.trade} · ${t.district}, ${t.city}${t.publicHiddenAt ? ' (fiche déjà masquée)' : ''}`,
+      ]),
+    ])
     // Fiche entreprise : nom et ville (masquée ou non).
     const companyIds = reports.filter((r) => r.targetType === 'company').map((r) => r.targetId)
     const companies = companyIds.length

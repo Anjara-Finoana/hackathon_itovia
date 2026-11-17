@@ -887,22 +887,49 @@ export type TalentSignalStatus =
 
 /**
  * Fiche publique d'un talent : LISTE BLANCHE exacte de ce que voit un
- * visiteur. Jamais de nom (même partiel), téléphone, id interne, photo,
- * agent, commentaire, libellé de travail ni auteur.
+ * visiteur (décision 2026-11-16 : tout talent recommandé apparaît, profil
+ * créé par un agent ou simple signal). Jamais de téléphone, d'indice de
+ * contact, d'id interne, de photo de preuve, d'agent ni d'auteur.
  */
 export interface PublicTalent {
-  /** Identifiant public aléatoire (10 caractères) — jamais l'id du profil. */
+  /** Identifiant public aléatoire (10 caractères) — jamais l'id du profil ni du signal. */
   publicRef: string
+  /** Nom du talent (profil) ou nom donné par les recommandeurs (signal) ; `null` s'il est inconnu ou purgé. */
+  name: string | null
   trade: string
   sector: Sector
   city: string
   district: string | null
   level: TrustLevel
+  /** Recommandations retenues (une par auteur, exclusions retirées). */
+  recommendationCount: number
   independentSources: number
   /** Les 3 points forts les plus cités (liste fermée). */
   highlights: string[]
+  /** `true` : profil créé par un agent avec au moins une vérification (« Vérifié par OffRec »). */
+  verified: boolean
   /** Mois de la dernière vérification par un agent, `AAAA-MM`. */
   verifiedMonth: string | null
+}
+
+/**
+ * Une recommandation telle que publiée (talent ou entreprise, décision
+ * 2026-11-16) : jamais d'auteur (ni nom, ni pseudonyme, ni id), de preuve,
+ * de quartier d'auteur ni de libellé de travail. Un commentaire contenant
+ * des coordonnées est masqué (`comment: null`, `commentMasked: true`).
+ */
+export interface PublicEndorsement {
+  relation: EndorsementRelation
+  highlights: string[]
+  comment: string | null
+  commentMasked: boolean
+  /** Mois de la recommandation à Madagascar, `AAAA-MM`. */
+  month: string
+}
+
+/** Fiche détaillée d'un talent : la carte plus ses recommandations publiées. */
+export interface PublicTalentDetail extends PublicTalent {
+  recommendations: PublicEndorsement[]
 }
 
 /** État de la visibilité publique, vu par l'agent du talent (et l'admin). */
@@ -934,8 +961,9 @@ export interface HighlightCount {
 /**
  * Fiche publique d'une entreprise : LISTE BLANCHE exacte de ce que voit un
  * visiteur (et la vitrine). Jamais d'auteur (même pseudonyme), de quartier
- * d'auteur, de commentaire, de libellé de poste, de date de travail, de
- * preuve, ni de compte recruteur lié.
+ * d'auteur, de libellé de poste, de date de travail, de preuve, ni de compte
+ * recruteur lié. Les commentaires ne sortent que dans `recommendations`
+ * (fiche détaillée, décision 2026-11-16).
  */
 export interface PublicCompany {
   id: string
@@ -954,6 +982,11 @@ export interface PublicCompany {
   relations: Record<CompanyRelation, number> | null
   /** Décompte des points forts cités (liste fermée), du plus cité au moins cité. */
   highlights: HighlightCount[]
+  /**
+   * Recommandations publiées (auteur anonyme, décision 2026-11-16) —
+   * présentes sur la fiche détaillée (`GET /companies/:id`) seulement.
+   */
+  recommendations?: PublicEndorsement[]
 }
 
 /** Encart du recruteur lié : niveau, nombre, points forts — jamais d'auteur ni de commentaire. */

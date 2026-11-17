@@ -999,6 +999,9 @@ model TalentProfile {
   /// Identifiant public aléatoire de la fiche (jamais l'id), régénéré à
   /// chaque nouvel accord, remis à `null` au retrait : l'ancien lien meurt.
   publicRef       String?      @unique
+  /// Masquage par un admin de la vitrine « Talents recommandés » (décision
+  /// 2026-11-16) : la fiche n'y apparaît plus, quel que soit l'accord.
+  publicHiddenAt  DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -1025,8 +1028,13 @@ enum ContactRequestStatus {
 /// contact hors ligne ; la plateforme ne met jamais les deux en relation.
 model TalentContactRequest {
   id          String               @id @default(uuid())
-  talentId    String
-  talent      TalentProfile        @relation(fields: [talentId], references: [id], onDelete: Cascade)
+  /// Talent visé ; `null` tant que la demande vise un signal non converti
+  /// (décision 2026-11-16). Renseigné à la conversion du signal.
+  talentId    String?
+  talent      TalentProfile?       @relation(fields: [talentId], references: [id], onDelete: Cascade)
+  /// Signal visé (entrée de la vitrine sans profil) ; suit la cible d'une fusion.
+  signalId    String?
+  signal      TalentSignal?        @relation(fields: [signalId], references: [id], onDelete: SetNull)
   requesterId String
   requester   User                 @relation("TalentContactRequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
   /// Besoin décrit par le demandeur (≤ 1000 caractères), lu par l'agent.
@@ -1038,6 +1046,7 @@ model TalentContactRequest {
   createdAt   DateTime             @default(now())
 
   @@index([talentId])
+  @@index([signalId])
   @@index([status])
   @@index([requesterId])
 }
@@ -1232,7 +1241,8 @@ model TalentSignal {
   province        String
   city            String
   district        String
-  /// « Comment l'appelez-vous ? » — PRIVÉ (agents/admins).
+  /// « Comment l’appelez-vous ? » — PUBLIC depuis la décision 2026-11-16
+  /// (nom affiché dans la vitrine « Talents recommandés ») ; purgé à 60 jours.
   subjectName     String?
   /// PRIVÉ.
   contactPhone    String?
@@ -1250,10 +1260,16 @@ model TalentSignal {
   mergedFrom      TalentSignal[]     @relation("TalentSignalMerge")
   expiresAt       DateTime
   contactPurgedAt DateTime?
+  /// Identifiant public aléatoire de l'entrée de la vitrine « Talents
+  /// recommandés » (décision 2026-11-16) — jamais l'id.
+  publicRef       String?            @unique
+  /// Masquage par un admin de la vitrine.
+  publicHiddenAt  DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  endorsements Endorsement[]
+  endorsements    Endorsement[]
+  contactRequests TalentContactRequest[]
 
   @@index([status])
   @@index([phoneKey])

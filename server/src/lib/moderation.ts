@@ -37,7 +37,11 @@ export async function resolveTargetUserId(
       // §7.3.14). `targetId` est l'id du profil (le `publicRef` reçu du
       // client est résolu par reports.routes.ts).
       const t = await prisma.talentProfile.findUnique({ where: { id: targetId }, select: { agentId: true } })
-      return t?.agentId ?? null
+      if (t) return t.agentId
+      // Entrée de la vitrine issue d'un signal (décision 2026-11-16) : l'agent
+      // qui le tient, s'il y en a un — sinon personne de sanctionnable.
+      const s = await prisma.talentSignal.findUnique({ where: { id: targetId }, select: { agentId: true } })
+      return s?.agentId ?? null
     }
     case 'company':
       // Une entreprise n'est pas un compte : aucun responsable sanctionnable

@@ -26,8 +26,8 @@ const AUDIENCES = [
     icon: Hammer,
     tab: 'Artisans & fournisseurs',
     title: 'Artisans & fournisseurs',
-    text: 'Faites-vous connaître par les retours de vos clients plutôt que par la publicité. Votre réputation se construit sur des chantiers réels.',
-    action: { label: 'Créer ma fiche', to: '/inscription' },
+    text: 'Faites-vous connaître par les retours de vos clients plutôt que par la publicité. Les fiches sont ajoutées par l’équipe OffRec, puis votre réputation se construit sur des chantiers réels.',
+    action: { label: 'Voir l’annuaire', to: '/annuaire' },
     secondary: { label: 'En savoir plus', to: '/annuaire' },
   },
   {

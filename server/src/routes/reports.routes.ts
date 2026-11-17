@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { reportInputSchema } from '../lib/validation.js'
 import { resolveTargetUserId } from '../lib/moderation.js'
 import { scheduleAdminNotification } from '../lib/notify.js'
-import { findPublicTalent } from '../lib/public-talents.js'
+import { findPublicEntry } from '../lib/public-talents.js'
 import { VISIBLE_COMPANY_WHERE } from '../lib/companies.js'
 
 const REPORTER_LABELS: Record<string, string> = {
@@ -32,10 +32,11 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const body = reportInputSchema.parse(req.body)
     // Fiche publique de talent : le client n'en connaît que le `publicRef` ;
-    // on enregistre l'id du profil (stable même si l'accord est retiré).
+    // on enregistre l'id du profil — ou du signal pour une entrée sans profil
+    // (décision 2026-11-16) —, stable même si la fiche est retirée.
     let targetId = body.targetId
     if (body.targetType === 'talent') {
-      const talent = await findPublicTalent(body.targetId)
+      const talent = await findPublicEntry(body.targetId)
       if (!talent) {
         res.status(404).json({ error: 'Ce talent n’est pas (ou plus) présenté publiquement.' })
         return

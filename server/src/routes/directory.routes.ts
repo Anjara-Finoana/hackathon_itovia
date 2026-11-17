@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { requireAuth } from '../middleware/auth.js'
+import { requireRole } from '../middleware/rbac.js'
 import { getOrCreateMember } from '../lib/member.js'
 import { clip, scheduleAdminNotification } from '../lib/notify.js'
 import { providerInputSchema, recommendationInputSchema } from '../lib/validation.js'
@@ -152,7 +153,12 @@ router.get('/providers/:id', async (req, res, next) => {
   }
 })
 
-router.post('/providers', requireAuth, async (req, res, next) => {
+/**
+ * Ajout d'un professionnel à l'annuaire : réservé aux administrateurs (règle
+ * produit 2026-11-16). Les autres rôles recommandent ou confirment seulement des
+ * professionnels déjà listés ; aucune autre route ne crée de `Provider`.
+ */
+router.post('/providers', requireRole('admin'), async (req, res, next) => {
   try {
     const { authorDisplayName, authorDistrict, ...providerBody } = req.body
     if (!authorDisplayName || !authorDistrict) {
@@ -164,8 +170,18 @@ router.post('/providers', requireAuth, async (req, res, next) => {
       displayName: authorDisplayName,
       district: authorDistrict,
     })
-    const provider = await prisma.provider.create({
-      data: { ...body, addedByMemberId: member.id },
+    const provider = await prisma.$transaction(async (tx) => {
+      const created = await tx.provider.create({
+        data: { ...body, addedByMemberId: member.id },
+      })
+      await tx.auditLog.create({
+        data: {
+          userId: req.session!.sub,
+          action: 'provider_created',
+          metadata: { providerId: created.id },
+        },
+      })
+      return created
     })
     res.status(201).json({ provider: toDomainProvider(provider) })
     // Le membre n'est jamais nommé (règle de confidentialité de l'annuaire).
@@ -173,9 +189,9 @@ router.post('/providers', requireAuth, async (req, res, next) => {
       event: 'provider_created',
       category: 'annuaire',
       title: 'Nouvelle fiche dans l’annuaire',
-      message: `Un membre a ajouté la fiche « ${clip(provider.name, 60)} » (${clip(provider.trade, 40)}, ${clip(provider.district, 40)}).`,
+      message: `Un administrateur a ajouté la fiche « ${clip(provider.name, 60)} » (${clip(provider.trade, 40)}, ${clip(provider.district, 40)}).`,
       link: `/annuaire/${provider.id}`,
-      excludeUserId: req.session!.role === 'admin' ? req.session!.sub : null,
+      excludeUserId: req.session!.sub,
     })
   } catch (err) {
     next(err)

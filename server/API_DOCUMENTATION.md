@@ -1363,7 +1363,7 @@ Authorization: Bearer {token}
 Content-Type: application/json
 ```
 
-**Rôle requis** : Authentifié (crée/met à jour le membre)
+**Rôle requis** : `admin` uniquement (règle produit 2026-11-16 ; `requireRole('admin')`, sinon 403 « Accès refusé pour ce rôle. »). Crée/met à jour le membre de l'admin. Les autres rôles recommandent ou confirment des fiches existantes ; aucune autre route ne crée de fiche.
 
 **Body** :
 ```json
@@ -1393,6 +1393,7 @@ Content-Type: application/json
 ```
 
 **Invariants** :
+- Écrit une ligne `AuditLog` `provider_created` (`{ providerId }`), libellée dans `/admin/activite`
 - Une seule fiche par prestataire + membre
 - Pas de suppression de fiche (historique)
 - Les doublons sont dédoublonnés par auteur
@@ -2001,7 +2002,7 @@ Ni téléphone ni empreinte. Aucune écriture : seul l'agent qui suit un talent 
 
 **Endpoint** : `GET /admin/talent-signals?status=nouveau|pris_en_charge|injoignable|converti|refuse|expire|fusionne`
 
-Purge paresseuse des signaux expirés (comme la file des agents). Contact visible pour l'admin (jamais public).
+Purge paresseuse des signaux expirés (comme la file des agents). Téléphone et indice visibles pour l'admin (jamais publics). `publicVisible` / `publicHiddenAt` : état dans la vitrine (décision 2026-11-16).
 
 **Response** (200) :
 ```json
@@ -2012,7 +2013,8 @@ Purge paresseuse des signaux expirés (comme la file des agents). Contact visibl
       "status": "nouveau", "createdAt": "…", "expiresAt": "…", "contactPurged": false,
       "subjectName": "Rado T.", "contactPhone": "034 00 000 01", "contactHint": "…",
       "agentName": null, "talentId": null, "mergedIntoId": null, "endorsementCount": 2,
-      "trust": { "level": "nouveau", "...": "SubjectTrust" } }
+      "trust": { "level": "nouveau", "...": "SubjectTrust" },
+      "publicRef": "v7k2mpq4ta", "publicVisible": true, "publicHiddenAt": null }
   ]
 }
 ```
@@ -2762,7 +2764,7 @@ Content-Type: application/json
 
 ## 🤝 Recommandations de talents
 
-Un membre connecté recommande une personne qu'il a vue travailler (talent informel, sans profil). La recommandation alimente un **signal privé** traité par un agent de terrain : elle ne crée jamais de profil (§7.3.14), rien n'est public. Contact (`subjectName`, `contactPhone`, `contactHint`) et `comment` ne sont lisibles que par l'agent habilité et les admins, et purgés 60 jours après la dernière activité (ou immédiatement en cas de refus). Positif seulement : un problème grave passe par `POST /reports` (`targetType: "endorsement"`).
+Un membre connecté recommande une personne qu'il a vue travailler (talent informel, sans profil). La recommandation alimente un **signal** traité par un agent de terrain : elle ne crée jamais de profil (§7.3.14). **Décision 2026-11-16** : le talent apparaît aussitôt dans la vitrine publique « Talents recommandés » (nom `subjectName`, métier, lieu, confiance, recommandations avec `comment` mais **auteur anonyme** — voir plus bas). Le contact (`contactPhone`, `contactHint`), l'empreinte d'auteur et la photo de preuve ne sont lisibles que par l'agent habilité et les admins. Nom, contact et commentaires sont purgés 60 jours après la dernière activité (ou immédiatement en cas de refus) : l'entrée reste publiée sous « Talent recommandé ». Positif seulement : un problème grave passe par `POST /reports` (`targetType: "endorsement"`).
 
 ### 1. Recommander un talent
 
@@ -2784,14 +2786,14 @@ Un membre connecté recommande une personne qu'il a vue travailler (talent infor
   "jobLabel": "Réparation de l'embrayage (8 caractères min.)",
   "jobDate": "2026-09-20",
   "highlights": ["Travail soigné", "Prix respecté"],
-  "comment": "Facultatif, ≤ 1000, vu par l'agent seulement",
+  "comment": "Facultatif, ≤ 1000, publié sans auteur ; ni email ni téléphone (400 sinon)",
   "authorDistrict": "Facultatif : quartier de l'auteur"
 }
 ```
   Au moins un de `subjectName` / `contactPhone` / `contactHint`. Téléphone : 9 chiffres après normalisation (`261` ou `0` initial retiré). `jobDate` jamais future. `highlights` : 1 à 5, liste fermée `TALENT_HIGHLIGHTS` (`src/data/endorsements.ts`).
 - `proof` (fichier, facultatif) : photo JPEG/PNG/WebP, 5 Mo max, contrôle des octets magiques, segments EXIF (APP1) des JPEG retirés. Stockée sous `uploads/preuves/<uuid>.<ext>`.
 
-**Regroupement** : téléphone d'un `TalentProfile` existant → rattachement au talent (signal `converti`, contact non conservé, notification à son agent) ; sinon signal ouvert de même téléphone → rattachement (échéance repoussée) ; sinon nouveau signal (notification aux agents de la province, à défaut à tous).
+**Regroupement** : téléphone d'un `TalentProfile` existant → rattachement au talent (signal `converti`, contact non conservé, notification à son agent) ; sinon signal ouvert de même téléphone → rattachement (échéance repoussée) ; sinon nouveau signal (notification aux agents de la province, à défaut à tous), créé avec un `publicRef` aléatoire (vitrine).
 
 **Response** (201) — toujours la même, la personne soit-elle connue ou non :
 ```json
@@ -3663,26 +3665,39 @@ Base path: `/talent-leads`
 
 ## 🌟 Talents recommandés (vitrine publique)
 
-Base path: `/talents-recommandes`. Lecture **sans authentification**. N'apparaît qu'un talent dont l'agent a recueilli l'**accord explicite de visibilité publique** (`publicConsentAt`, distinct de `consentAt`, révocable), avec en plus : `consentAt` renseigné, au moins une `TalentVerification`, agent ni suspendu ni banni, compte de suivi du talent (s'il existe) ni suspendu ni banni (`PUBLIC_TALENT_WHERE`, `server/src/lib/public-talents.ts`). Réponses `Cache-Control: no-store`. Limiteur lecture : 300 / 15 min / IP.
+Base path: `/talents-recommandes`. Lecture **sans authentification**. **Décision 2026-11-16** : tout talent recommandé apparaît dès la première recommandation, sans attendre l'agent ni l'accord du talent. Deux sources (`server/src/lib/public-talents.ts`) :
+- **Profils** (`TalentProfile`, `PUBLIC_TALENT_WHERE`) : non masqués par un admin (`publicHiddenAt`), compte de suivi du talent ni suspendu ni banni, et **soit** au moins une recommandation non écartée rattachée, **soit** l'ancienne voie par accord (`publicConsentAt` + `consentAt` + au moins une vérification + agent actif).
+- **Signaux** (`TalentSignal`, `PUBLIC_SIGNAL_WHERE`) : statut `nouveau`, `pris_en_charge`, `injoignable` ou `expire` (nom purgé → « Talent recommandé »), non fusionnés (`mergedIntoId` nul — seule la cible est publiée, avec les recommandations des signaux fusionnés), non convertis (`talentId` nul — le profil est publié à la place, jamais de doublon), non masqués, et au moins une recommandation non écartée dans la famille. Un signal `refuse` n'est jamais publié.
 
-**Liste blanche exacte d'un talent public (`PublicTalent`)** — rien d'autre n'est jamais renvoyé (ni nom, même partiel, ni téléphone, ni id interne, ni photo, ni agent, ni commentaire, ni libellé de travail, ni auteur) :
+Le `publicRef` (10 caractères aléatoires, unique sur profils **et** signaux, jamais l'id) est créé avec le signal, ou attribué paresseusement à la première lecture de la vitrine. Réponses `Cache-Control: no-store`. Limiteur lecture : 300 / 15 min / IP.
+
+**Liste blanche exacte d'un talent public (`PublicTalent`)** — rien d'autre n'est jamais renvoyé (ni téléphone `contactPhone`/`phoneKey`, ni `contactHint`, ni `authorLinkKey`, ni photo de preuve, ni id interne, ni agent, ni libellé de travail, ni auteur) :
 ```json
 {
   "publicRef": "v7k2mpq4ta",
+  "name": "Rado",
   "trade": "Couturière",
   "sector": "textile_artisanat",
   "city": "Antananarivo",
   "district": "Analamahitsy",
   "level": "tres_recommande",
+  "recommendationCount": 5,
   "independentSources": 4,
   "highlights": ["Travail soigné", "Ponctuel·le", "Prix respecté"],
+  "verified": true,
   "verifiedMonth": "2026-10"
 }
 ```
-`highlights` : les 3 points forts les plus cités (recommandations retenues). `verifiedMonth` : mois (UTC+3) de la dernière vérification.
+`name` : nom du profil (`fullName`) ou nom donné par les recommandeurs (`subjectName` du signal), `null` s'il est inconnu ou purgé. `recommendationCount` / `independentSources` / `level` : `evaluateSubject` inchangé (exclusions retirées, une par auteur). `highlights` : les 3 points forts les plus cités. `verified` : profil avec au moins une `TalentVerification` (badge « Vérifié par OffRec », sinon « Non encore vérifié ») ; `verifiedMonth` : mois (UTC+3) de la dernière vérification.
+
+**Recommandation publiée (`PublicEndorsement`, talents et entreprises)** — `server/src/lib/public-endorsements.ts` :
+```json
+{ "relation": "client", "highlights": ["Travail soigné"], "comment": "Très soigneux.", "commentMasked": false, "month": "2026-09" }
+```
+Recommandations retenues seulement (non écartées, une par auteur, la plus récente d'abord). Jamais d'auteur (nom, pseudonyme, id, empreinte), de quartier d'auteur, de libellé de travail, de date exacte ni de preuve. Un commentaire contenant un email ou un numéro de téléphone (`contactDetailsError`, anciennes saisies) est masqué : `comment: null`, `commentMasked: true`. Les nouvelles saisies sont refusées en 400 (`optionalNoContactText`).
 
 ### 1. Liste — `GET /talents-recommandes?trade=&city=&limit=`
-Filtres `trade`, `city` (≤ 80 car., égalité insensible à la casse), `limit` 1–100 (défaut 60, par section). Tri par confiance seule (`compareSubjectTrust`), puis accord public le plus ancien, puis `publicRef`.
+Filtres `trade`, `city` (≤ 80 car., égalité insensible à la casse), `limit` 1–100 (défaut 60, par section). Tri par confiance seule (`compareSubjectTrust`), puis entrée la plus ancienne (accord public, sinon création), puis `publicRef`.
 ```json
 {
   "recommended": ["PublicTalent"],
@@ -3691,30 +3706,32 @@ Filtres `trade`, `city` (≤ 80 car., égalité insensible à la casse), `limit`
   "filters": { "trades": ["Couturière"], "cities": ["Antananarivo"] }
 }
 ```
-`newcomers` = niveau `nouveau` (section « Nouveaux talents vérifiés », jamais pénalisée).
+`newcomers` = niveau `nouveau` (section « Nouveaux talents », jamais pénalisée).
 
 ### 2. Fiche — `GET /talents-recommandes/:publicRef`
-`{ "talent": PublicTalent }`. 404 si la fiche n'est pas (ou plus) publique : après un retrait, l'ancien `publicRef` renvoie 404 ; un nouvel accord crée un nouveau `publicRef`.
+`{ "talent": PublicTalent & { "recommendations": PublicEndorsement[] } }`. 404 si l'entrée n'est pas (ou plus) publique (masquée, signal refusé, fusionné ou converti — le profil a son propre `publicRef`).
 
 ### 3. Demande de contact — `POST /talents-recommandes/:publicRef/contact`
-Rôles : `candidate`, `recruiter`, `particulier`, `talent` (sans session → 401 ; `agent`/`admin` → 403). Body `{ "need": "20 à 1000 caractères" }`. 400 si le compte de suivi du talent se vise lui-même ; 409 si une demande `nouvelle`/`transmise` existe déjà pour ce talent ; 429 au-delà de 5 demandes / 24 h / utilisateur, et limiteur IP 10 / 15 min. Crée une `TalentContactRequest` (`nouvelle`), `AuditLog` `talent_contact_requested`, notifie in-app l'agent du talent (`/agent/demandes-talents`) et les admins (catégorie `agent`) — métier et ville seulement.
+Rôles : `candidate`, `recruiter`, `particulier`, `talent` (sans session → 401 ; `agent`/`admin` → 403). Body `{ "need": "20 à 1000 caractères" }`. 400 si le compte de suivi du talent se vise lui-même ; 409 si une demande `nouvelle`/`transmise` existe déjà pour cette entrée ; 429 au-delà de 5 demandes / 24 h / utilisateur, et limiteur IP 10 / 15 min. Crée une `TalentContactRequest` (`nouvelle`) avec `talentId` (profil) **ou** `signalId` (signal non converti), `AuditLog` `talent_contact_requested` `{ talentId | signalId, requestId }`. Notification in-app : l'agent du talent, ou l'agent qui tient le signal ; signal sans agent → le **pool** des agents (province du signal, à défaut tous) ; et les admins (catégorie `agent`) — métier et ville seulement. À la conversion du signal, ses demandes (et celles des signaux fusionnés) reçoivent le `talentId` du profil créé ; à une fusion, elles suivent le signal cible.
 ```json
 { "request": { "id": "uuid", "status": "nouvelle", "createdAt": "…" }, "message": "Demande envoyée : …" }
 ```
 OffRec reste l'intermédiaire : la plateforme ne transmet jamais les coordonnées du talent ; l'agent organise le contact hors ligne.
 
 ### 4. Mes demandes — `GET /talents-recommandes/mes-demandes`
-Mêmes rôles. `{ requests: [{ id, need, status, createdAt, handledAt, talent: { trade, city, district, publicRef|null } }] }` (`publicRef` seulement si la fiche est encore publique).
+Mêmes rôles. `{ requests: [{ id, need, status, createdAt, handledAt, talent: { trade, city, district, publicRef|null } }] }` (`talent` décrit le profil ou le signal ; `publicRef` seulement si l'entrée est encore publique).
 
-### Agent (rôle `agent`, ses talents seulement — sinon 404)
-- `PUT /agent/talents/:id/public-visibility` `{ "granted": boolean }` → `{ publicVisibility: { granted, publicConsentAt, publicRef, visible, blockers[] } }`. Accord : 409 sans `consentAt` ou sans vérification ; nouveau `publicRef` aléatoire ; `AuditLog` `talent_consent_public_granted` `{ talentId }`. Retrait : `publicConsentAt` et `publicRef` à `null`, `AuditLog` `talent_consent_public_revoked` `{ talentId }`. Répéter l'état courant est sans effet. Notification admin (catégorie `agent`).
+### Agent (rôle `agent`)
+- `PUT /agent/talents/:id/public-visibility` `{ "granted": boolean }` → `{ publicVisibility: { granted, publicConsentAt, publicRef, visible, blockers[] } }`. Accord : 409 sans `consentAt` ou sans vérification ; nouveau `publicRef` aléatoire ; `AuditLog` `talent_consent_public_granted` `{ talentId }`. Retrait : `publicConsentAt` et `publicRef` à `null`, `AuditLog` `talent_consent_public_revoked` `{ talentId }` — un talent **recommandé** reste publié (nouveau `publicRef` attribué à la lecture suivante) ; seul un admin peut le masquer. `visible` suit `PUBLIC_TALENT_WHERE`.
 - `GET /agent/talents/:id` ajoute `publicVisibility` et `publicPreview` (même liste blanche que la vitrine).
-- `GET /agent/contact-requests?status=nouvelle|transmise|close` → `{ counts, requests: [{ id, status, need, createdAt, handledAt, talent: { id, fullName, trade, city, district }, requester: { role, roleLabel, name, email, phone } }] }`.
+- `GET /agent/contact-requests?status=nouvelle|transmise|close` → `{ counts, requests: [{ id, status, need, createdAt, handledAt, talent: { id, fullName, trade, city, district } | null, signal: { id, subjectName, trade, city, district, status, pool } | null, requester: { role, roleLabel, name, email, phone } }] }`. Visibles : demandes sur ses talents, sur les signaux qu'il tient, et sur les signaux qu'aucun agent ne tient (`pool: true`, ouvertes à tous les agents). Autre demande → 404.
 - `PATCH /agent/contact-requests/:id` `{ "status": "transmise" | "close" }` : `nouvelle → transmise → close` ou `nouvelle → close` (sinon 409). `AuditLog` `talent_contact_request_<statut>`. À `transmise`, le demandeur est notifié in-app (lien `/talents#mes-demandes`, sans nom ni contact du talent).
 
 ### Admin (rôle `admin`)
-- `GET /admin/talents` ajoute `publicConsentAt`, `publicRef`, `publicVisible`, `openContactRequests`.
-- `PUT /admin/talents/:id/public-visibility` `{ "granted": false }` : retrait seulement (modération), `AuditLog` `talent_consent_public_revoked`, l'agent est notifié.
+- `GET /admin/talents` ajoute `publicConsentAt`, `publicRef`, `publicVisible`, `publicHiddenAt`, `openContactRequests` ; `GET /admin/talent-signals` ajoute `publicRef`, `publicVisible`, `publicHiddenAt`.
+- `PUT /admin/talents/:id/public-visibility` : `{ "hidden": boolean }` masque / réaffiche (`publicHiddenAt`, `AuditLog` `talent_public_hidden` / `talent_public_unhidden` `{ talentId }`, l'agent est notifié) ; l'ancien corps `{ "granted": false }` retire en plus l'accord public (`talent_consent_public_revoked`). L'admin ne donne jamais d'accord.
+- `PUT /admin/talent-signals/:id/public-visibility` `{ "hidden": boolean }` : idem pour un signal (`AuditLog` `{ signalId }`) ; le masquage est repris par le profil à la conversion.
+- Signalement d'une entrée : `POST /reports` `{ targetType: "talent", targetId: publicRef }` → `targetId` enregistré = id du profil, ou du signal (responsable : son agent, sinon aucun).
 
 ### Compte talent
 - `GET /talent-account/me` : `talent.publicVisibility = { visible, publicConsentAt, publicRef }` (lecture seule).
@@ -3723,7 +3740,7 @@ Mêmes rôles. `{ requests: [{ id, need, status, createdAt, handledAt, talent: {
 
 ## 🏢 Entreprises recommandées
 
-Des employeurs recommandés par d'anciens salariés, stagiaires ou prestataires. Positif seulement (un problème grave passe par `POST /reports` avec `targetType: "company"`). **Aucun auteur** (même pseudonyme), **aucun commentaire**, aucun poste ni aucune date ne sortent des réponses publiques, recruteur ou des notifications. Une entreprise masquée par un admin (`hiddenAt`) n'apparaît nulle part. Toutes les lectures publiques renvoient `Cache-Control: no-store` et passent par un limiteur de 300 requêtes / 15 min / IP.
+Des employeurs recommandés par d'anciens salariés, stagiaires ou prestataires. Positif seulement (un problème grave passe par `POST /reports` avec `targetType: "company"`). **Aucun auteur** (même pseudonyme), aucun poste, aucune date exacte ni aucune preuve ne sortent des réponses publiques, recruteur ou des notifications. **Décision 2026-11-16** : la fiche détaillée publie les recommandations retenues (relation, points forts, commentaire, mois) — voir `PublicEndorsement` dans la section « Talents recommandés ». Une entreprise masquée par un admin (`hiddenAt`) n'apparaît nulle part. Toutes les lectures publiques renvoient `Cache-Control: no-store` et passent par un limiteur de 300 requêtes / 15 min / IP.
 
 **Liste blanche publique (`PublicCompany`)** : `id`, `name`, `sector`, `city`, `level` (`nouveau` | `recommande` | `tres_recommande`), `independentSources`, `relations` (`{ salarie, stagiaire, prestataire }`, ou `null` sous 3 recommandations retenues), `highlights` (`[{ label, count }]`, du plus cité au moins cité).
 
@@ -3731,10 +3748,10 @@ Des employeurs recommandés par d'anciens salariés, stagiaires ou prestataires.
 Sans authentification. `q` est comparé au nom normalisé (`nameKey` : minuscules, sans accents ni ponctuation, sans SARL/SA/SARLU/SAS/EURL/Ets/Société…). Réponse : `{ companies: PublicCompany[], total, filters: { cities } }`, triée par confiance puis par nom. `q`/`city` > 80 caractères ou secteur inconnu -> 400.
 
 ### 2. Fiche — `GET /companies/:id`
-`{ company: PublicCompany }` ; id invalide, inconnu ou fiche masquée -> 404.
+`{ company: PublicCompany & { recommendations: PublicEndorsement[] } }` ; id invalide, inconnu ou fiche masquée -> 404. `recommendations` : retenues (non écartées, une par auteur, la plus récente d'abord), auteur jamais exposé, commentaire avec coordonnées masqué.
 
 ### 3. Employeur d'une offre — `GET /companies/by-opportunity/:opportunityId`
-`{ company: PublicCompany | null }` : fiche visible liée au recruteur de l'offre. Le frontend ne l'appelle que sur `/offres/:id` (public) et dans un dossier candidat **après** `mise_en_relation`.
+`{ company: PublicCompany | null }` (sans `recommendations`) : fiche visible liée au recruteur de l'offre. Le frontend ne l'appelle que sur `/offres/:id` (public) et dans un dossier candidat **après** `mise_en_relation`.
 
 ### 4. Encart du recruteur — `GET /companies/mine` (rôle `recruiter`)
 `{ company: { id, name, sector, city, level, recommendationCount, independentSources, highlights } | null }` — `null` si aucune fiche liée ou si elle est masquée.
@@ -3745,7 +3762,7 @@ Sans authentification. `q` est comparé au nom normalisé (`nameKey` : minuscule
 { "companyId": "uuid" }  // OU
 { "company": { "name": "Bâtisseurs du Lac SARL", "sector": "btp", "province": "Antananarivo", "city": "Antananarivo" },
   "relation": "salarie | stagiaire | prestataire", "jobLabel": "Aide-maçon", "jobDate": "2026-08-10",
-  "highlights": ["Paie à l’heure"], "comment": "privé, admin seulement", "authorDistrict": "Itaosy" }
+  "highlights": ["Paie à l’heure"], "comment": "publié sans auteur ; ni email ni téléphone (400 sinon)", "authorDistrict": "Itaosy" }
 ```
 - Fiche créée si absente, dédoublonnée par `nameKey` + ville canonique.
 - 400 : auteur = l'entreprise (recruteur lié, `RecruiterProfile.companyName` normalisé identique, ou même téléphone qu'un recruteur de cette entreprise) ; validation ; fichier refusé. 404 : `companyId` inconnu ou masqué. 409 : déjà recommandée par ce membre. 429 : limiteur IP (10 / 15 min, partagé avec `POST /endorsements/talents`) ou plafond par membre (3 / 24 h, 10 / 30 jours, **communs** aux talents et entreprises).

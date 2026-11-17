@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from './prisma.js'
 import { buildTrustEvidence } from './endorsement-evidence.js'
+import { toPublicEndorsement } from './public-endorsements.js'
 import { evaluateSubject, compareSubjectTrust } from '../../../src/lib/trust.js'
 import { COMPANY_HIGHLIGHTS, COMPANY_RELATION_MIN, COMPANY_RELATIONS } from '../../../src/data/endorsements.js'
 import { PROVINCES } from '../../../src/data/constants.js'
@@ -16,8 +17,10 @@ import type {
  * Entreprises recommandées par d'anciens salariés, stagiaires ou
  * prestataires. Tout ce qui sort de `toPublicCompany` / `toLinkedSummary`
  * est construit par LISTE BLANCHE : jamais d'auteur (même pseudonyme), de
- * quartier d'auteur, de commentaire, de libellé de poste, de date de
- * travail, de preuve ni de compte recruteur lié. La confiance est calculée
+ * quartier d'auteur, de libellé de poste, de date de travail, de preuve ni
+ * de compte recruteur lié. Décision 2026-11-16 : la fiche détaillée publie
+ * les recommandations retenues (relation, points forts, commentaire sans
+ * coordonnées, mois) via `toPublicEndorsement`, auteur toujours anonyme. La confiance est calculée
  * côté serveur (l'empreinte d'auteur ne quitte jamais ce module).
  */
 
@@ -286,11 +289,19 @@ export async function listPublicCompanies(filters: CompanyListFilters) {
   return { companies: ranked.slice(0, filters.limit), total: ranked.length, filters: { cities } }
 }
 
-/** Fiche publique, `null` si absente ou masquée. */
+/**
+ * Fiche publique détaillée, `null` si absente ou masquée : la carte plus les
+ * recommandations retenues, auteur anonyme (décision 2026-11-16). Jamais
+ * ajoutées aux listes ni à la vue `by-opportunity` (fil candidat).
+ */
 export async function getPublicCompany(id: string): Promise<PublicCompany | null> {
   const c = await prisma.company.findFirst({ where: { ...VISIBLE_COMPANY_WHERE, id }, select: baseSelect })
   if (!c) return null
-  return toPublicCompany(c, (await loadCompanyTrust([c.id])).get(c.id))
+  const entry = (await loadCompanyTrust([c.id])).get(c.id)
+  return {
+    ...toPublicCompany(c, entry),
+    recommendations: retainedCompanyEndorsements(entry?.rows ?? []).map(toPublicEndorsement),
+  }
 }
 
 /** Entreprise liée à un compte recruteur (visible seulement), `null` sinon. */

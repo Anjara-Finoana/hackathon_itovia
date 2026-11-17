@@ -266,8 +266,8 @@ export function RecommendTalent() {
             <p className="rt-private">
               <Lock size={16} aria-hidden />
               <span>
-                <strong>Le contact ne sera jamais publié.</strong> Seul un agent OffRec le verra, pour appeler la
-                personne et lui demander son accord.
+                <strong>Le téléphone et le lieu ne seront jamais publiés.</strong> Seul un agent OffRec les verra,
+                pour appeler la personne. Le nom ou surnom apparaît dans la vitrine « Talents recommandés ».
               </span>
             </p>
             <p className="rt-help">Remplissez au moins une des trois cases.</p>
@@ -369,7 +369,10 @@ export function RecommendTalent() {
               )}
               <span className="field-hint">Vue seulement par l’agent. Elle aide à vérifier le travail.</span>
             </div>
-            <Field label="Un mot pour l’agent" hint="Vu seulement par l’agent OffRec.">
+            <Field
+              label="Votre commentaire"
+              hint="Publié sous votre recommandation, sans votre nom. Pas d’email ni de numéro de téléphone."
+            >
               <Textarea maxLength={1000} value={form.comment} onChange={(e) => set('comment', e.target.value)} />
             </Field>
             <Field label="Votre quartier" hint="Par défaut : celui de votre dernière contribution.">
