@@ -18,6 +18,11 @@ export function Footer() {
           <Link to="/connexion">Connexion</Link>
         </div>
         <div>
+          <p className="footer-heading">Légal</p>
+          <Link to="/politique-de-confidentialite">Politique de confidentialité</Link>
+          <Link to="/conditions-d-utilisation">Conditions d’utilisation</Link>
+        </div>
+        <div>
           <p className="footer-heading">Contact</p>
           <p>contact@qualitec.mg</p>
           <p>+261 38 64 234 49</p>

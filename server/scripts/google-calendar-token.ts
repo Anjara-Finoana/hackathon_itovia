@@ -27,7 +27,13 @@
  * compte) ou l'identifiant d'un agenda dédié (Paramètres de l'agenda →
  * « Intégrer l'agenda » → « ID de l'agenda »).
  */
-import 'dotenv/config'
+// import 'dotenv/config' facultatif si les variables sont passées en environnement
+try {
+  // @ts-ignore
+  await import('dotenv/config')
+} catch {
+  // Variables injectées directement via process.env
+}
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'

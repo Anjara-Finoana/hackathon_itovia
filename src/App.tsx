@@ -59,6 +59,8 @@ import { RecommendCompany } from './pages/companies/RecommendCompany'
 import { AdminCompanies } from './pages/admin/AdminCompanies'
 import { AdminRecruiters } from './pages/admin/AdminRecruiters'
 import { AdminCandidates } from './pages/admin/AdminCandidates'
+import { PrivacyPolicy } from './pages/legal/PrivacyPolicy'
+import { TermsOfService } from './pages/legal/TermsOfService'
 
 export default function App() {
   return (
@@ -493,6 +495,15 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Pages légales publiques conformes aux exigences OAuth Google Cloud */}
+            <Route path="politique-de-confidentialite" element={<PrivacyPolicy />} />
+            <Route path="confidentialite" element={<Navigate to="/politique-de-confidentialite" replace />} />
+            <Route path="privacy" element={<Navigate to="/politique-de-confidentialite" replace />} />
+
+            <Route path="conditions-d-utilisation" element={<TermsOfService />} />
+            <Route path="cgu" element={<Navigate to="/conditions-d-utilisation" replace />} />
+            <Route path="terms" element={<Navigate to="/conditions-d-utilisation" replace />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
