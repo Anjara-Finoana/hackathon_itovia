@@ -432,10 +432,12 @@ export function AdminInterviews() {
                       </Link>
                     </div>
                   </div>
-                  <ul className="ivl-list">
+                  {/* Même grille de cartes que les onglets « Entretiens » candidat et recruteur. */}
+                  <ul className="card-grid ivl-card-list">
                     {group.items.map((item) => (
                       <InterviewRow
                         key={item.interview.id}
+                        className="ivl-card"
                         audience="admin"
                         interview={item.interview}
                         heading={candidateLabel(item)}
