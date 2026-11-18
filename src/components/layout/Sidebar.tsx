@@ -1,5 +1,6 @@
-import { Link, NavLink } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useEffect, useId, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
@@ -7,6 +8,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarDays,
+  ChevronDown,
   ClipboardCheck,
   CreditCard,
   FileCheck2,
@@ -52,6 +54,15 @@ export interface RoleLink {
   /** Entrée de la carte latérale seulement : la barre d'onglets mobile la
    *  saute (elle reste sous « Menu »), pour ne pas déplacer ses 4 onglets. */
   menuOnly?: boolean
+  /** Groupe déroulant : l'entrée devient un bouton qui déplie/replie ces
+   *  sous-liens (son `to` ne sert que de clé). Un groupe est toujours
+   *  `menuOnly` : la barre d'onglets mobile ne sait afficher que des liens. */
+  children?: RoleLink[]
+}
+
+/** Vrai si `pathname` est la route `to` ou l'une de ses sous-routes. */
+function matchesPath(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`)
 }
 
 /** Entretiens à traiter par le recruteur (empêchement signalé par le
@@ -197,14 +208,32 @@ export function getLinksByRole(
       { to: '/admin/placements', label: 'Placements', icon: ClipboardCheck },
       { to: '/admin/moderation', label: 'Modération', icon: AlertTriangle },
       { to: '/admin/agents', label: 'Agents de terrain', icon: UserPlus },
-      // Après « Agents de terrain » : hors barre d'onglets mobile (4 premiers).
-      { to: '/admin/talents', label: 'Talents', icon: UsersRound },
-      // Comptes candidats (profil, CV, dossiers) puis comptes recruteurs et
-      // leurs offres — consultation seule ; « Recruteurs » reste à côté des
-      // fiches « Entreprises » auxquelles ils peuvent être liés.
-      { to: '/admin/candidats', label: 'Candidats', icon: GraduationCap },
-      { to: '/admin/recruteurs', label: 'Recruteurs', icon: BriefcaseBusiness },
-      { to: '/admin/entreprises', label: 'Entreprises', icon: Building2 },
+      // Après « Agents de terrain » : groupe déroulant des recommandations
+      // (talents recommandés, entreprises recommandées) ; `menuOnly`, donc
+      // hors barre d'onglets mobile, accessible sous « Menu ».
+      {
+        to: '/admin/recommandations',
+        label: 'Recommandations',
+        icon: HeartHandshake,
+        menuOnly: true,
+        children: [
+          { to: '/admin/talents', label: 'Talents', icon: UsersRound },
+          { to: '/admin/entreprises', label: 'Entreprises', icon: Building2 },
+        ],
+      },
+      // Groupe déroulant des comptes : candidats (profil, CV, dossiers) puis
+      // recruteurs et leurs offres — consultation seule ; `menuOnly`, comme
+      // « Recommandations », donc hors barre d'onglets mobile.
+      {
+        to: '/admin/utilisateurs',
+        label: 'Utilisateurs',
+        icon: Users,
+        menuOnly: true,
+        children: [
+          { to: '/admin/candidats', label: 'Candidats', icon: GraduationCap },
+          { to: '/admin/recruteurs', label: 'Recruteurs', icon: BriefcaseBusiness },
+        ],
+      },
       { to: '/annuaire', label: 'Annuaire', icon: Store },
       { to: '/messages', label: 'Messages', icon: MessageCircle },
     ],
@@ -315,6 +344,85 @@ function ProfileCompletionCard({ percent, onNavigate }: { percent: number; onNav
 }
 
 /**
+ * Entrée déroulante de la carte latérale (ex. « Recommandations » de l'admin) :
+ * un bouton parent (aria-expanded / aria-controls) qui déplie ses sous-liens.
+ * Le groupe s'ouvre de lui-même quand la route courante est l'un d'eux, et
+ * le parent est alors marqué actif ; replié, il porte la pastille active.
+ */
+function SidebarGroup({ group, onNavigate }: { group: RoleLink; onNavigate?: () => void }) {
+  const { pathname } = useLocation()
+  const reduceMotion = useReducedMotion()
+  const panelId = useId()
+  const children = group.children ?? []
+  const active = children.some((c) => matchesPath(pathname, c.to))
+  const [open, setOpen] = useState(active)
+
+  // Arrivée sur l'une des sous-routes (lien direct, notification…) : déplier.
+  useEffect(() => {
+    if (active) setOpen(true)
+  }, [active])
+
+  const badge = children.reduce((sum, c) => sum + (c.badge ?? 0), 0)
+
+  return (
+    <div className={`side-group ${open ? 'open' : ''}`}>
+      <button
+        type="button"
+        className={`side-link side-group-toggle ${active ? 'active' : ''}`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {active && !open && (
+          <motion.span
+            layoutId="sidebar-active-pill"
+            className="side-nav-pill"
+            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+          />
+        )}
+        <group.icon size={18} strokeWidth={1.75} aria-hidden />
+        <span className="side-link-label">{group.label}</span>
+        {!open && badge ? <span className="side-badge">{badge}</span> : null}
+        <ChevronDown size={16} strokeWidth={1.75} aria-hidden className="side-group-chevron" />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id={panelId}
+            className="side-group-panel"
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="side-group-list">
+              {children.map((c) => (
+                <NavLink key={c.to} to={c.to} end={c.end} onClick={onNavigate} className="side-link side-sublink">
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.span
+                          layoutId="sidebar-active-pill"
+                          className="side-nav-pill"
+                          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                        />
+                      )}
+                      <c.icon size={16} strokeWidth={1.75} aria-hidden />
+                      <span className="side-link-label">{c.label}</span>
+                      {c.badge ? <span className="side-badge">{c.badge}</span> : null}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/**
  * Carte latérale flottante : identité, navigation du rôle, section
  * « Compte ». Pour le candidat, une seconde carte indique le taux de
  * complétion du profil tant qu'il n'est pas à 100 %.
@@ -339,7 +447,10 @@ export function Sidebar({ onNavigate, onLogout }: SidebarProps) {
       ? candidateCompletion(currentUser.candidateProfile)
       : null
 
-  const renderLink = (l: RoleLink) => (
+  const renderLink = (l: RoleLink) =>
+    l.children?.length ? (
+      <SidebarGroup key={l.to} group={l} onNavigate={onNavigate} />
+    ) : (
     <NavLink key={l.to} to={l.to} end={l.end} onClick={onNavigate} className="side-link">
       {({ isActive }) => (
         <>
