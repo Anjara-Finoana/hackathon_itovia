@@ -3,6 +3,7 @@ FROM node:22-bookworm-slim
 # Dépendances système pour Chromium, WebRTC, Xvfb, et audio FFmpeg
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
+    xauth \
     ffmpeg \
     ca-certificates \
     fonts-liberation \
@@ -38,7 +39,7 @@ RUN npm install
 
 # Installation de Chromium via Playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN npx playwright install --with-deps chromium
+RUN npx playwright install chromium
 
 COPY bot/ ./
 RUN npm run build
