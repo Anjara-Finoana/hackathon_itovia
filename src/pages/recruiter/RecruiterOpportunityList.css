@@ -40,10 +40,15 @@
   color: var(--color-danger);
 }
 
-.rol-list {
+/* Offres en cartes dans la grille partagée `.card-grid` (ui/Card.css) : une
+   colonne, deux à partir de 1100 px — même présentation que les cartes
+   d'entretien `.ivl-card` (InterviewList.css). `.card` donne marge, rayon et
+   ombre ; le contenu est empilé verticalement, les actions alignées à droite. */
+.rol-card {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
+  min-width: 0;
 }
 
 .rol-card.is-filled {
@@ -52,15 +57,13 @@
 
 .rol-head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.5rem;
 }
 
 .rol-title {
   min-width: 0;
-  flex: 1 1 14rem;
 }
 
 .rol-title h2 {
@@ -85,8 +88,9 @@
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
+  align-self: flex-start;
   gap: 0.35rem;
-  margin: 0.6rem 0 0;
+  margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-ink-secondary);
@@ -104,8 +108,9 @@
 .rol-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: auto;
 }
 
 .rol-dialog {

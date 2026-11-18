@@ -207,7 +207,8 @@ export function RecruiterOpportunityList() {
             onAction={() => navigate('/recruteur/publier')}
           />
         ) : (
-          <div className="rol-list">
+          /* Même grille de cartes que l’onglet « Entretiens » (ui/Card.css). */
+          <div className="card-grid rol-list">
             {offers.map((o) => {
               const count = receivedSuggestions.filter((s) => s.opportunity.id === o.id).length
               const state = fillState(o)
