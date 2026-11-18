@@ -1,5 +1,6 @@
 import type {
   AdminInterview,
+  RecruiterCvSheet,
   AlreadyPlacedView,
   ContractType,
   HireDeclineReason,
@@ -29,7 +30,6 @@ import type {
   IndividualProfile,
   Notification,
   Member,
-  MatchFit,
   MatchSuggestion,
   MatchSuggestionOrigin,
   MatchSuggestionStatus,
@@ -363,14 +363,14 @@ export async function apiMyBookmarks(): Promise<string[]> {
 }
 
 /** Candidat diplômé transmis par OffRec, vu par le recruteur : le nom
- *  seulement — ni email ni téléphone (OffRec reste l'intermédiaire). */
+ *  seulement — ni email ni téléphone (OffRec reste l'intermédiaire), ni score
+ *  de matching (décision 2026-11-18 : réservé aux admins). */
 export interface ShortlistMatched {
   source: 'matche_ia'
   suggestionId: string
   candidateId: string
   fullName: string
   status: MatchSuggestionStatus
-  match: { score: number; reasons: string[] }
 }
 
 /** Recommandation d'un talent telle que la voit le recruteur : ni
@@ -405,8 +405,8 @@ export interface ShortlistProposed {
   district: string | null
   status: TalentStatus
   proposedAt: string
-  /** « Adéquation à l'offre » (scoreOpportunity) — jamais additionnée à la confiance. */
-  match: { score: number; reasons: string[] }
+  /** Pas d'« Adéquation à l'offre » : le score de matching n'est plus
+   *  renvoyé au recruteur (décision 2026-11-18) ; il ne sert qu'au tri. */
   /** « Confiance » calculée par le serveur à partir des recommandations. */
   trust: SubjectTrust
   verification: VerificationSummary | null
@@ -485,17 +485,11 @@ export function apiMySuggestions() {
 export interface ReceivedSuggestion {
   id: string
   status: MatchSuggestionStatus
-  score: number
-  reasons: string[]
   /** `createdAt` : date de publication de l'offre (ISO) — absente si le
-   *  serveur est plus ancien. */
+   *  serveur est plus ancien. Ni score, ni raisons, ni rang de présélection,
+   *  ni adéquation critère par critère : réservés aux admins (décision
+   *  2026-11-18). */
   opportunity: { id: string; title: string; createdAt?: string }
-  /** Adéquation critère par critère avec l'offre du recruteur — `null` si le
-   *  profil candidat est introuvable, absent si le serveur est plus ancien. */
-  fit?: MatchFit | null
-  /** Rang dans la présélection OffRec au moment de la transmission, s'il a
-   *  été enregistré. */
-  preselectionRank?: number | null
   /** Entretien fixé (dossier `mise_en_relation`) : tour actif, sinon le
    *  dernier ; `null`/absent sinon. */
   interview?: RecruiterInterview | null
@@ -535,6 +529,13 @@ export function apiReceivedSuggestions() {
   return request<{ suggestions: ReceivedSuggestion[] }>('/match-suggestions/received').then(
     (r) => r.suggestions,
   )
+}
+
+/** « Voir le CV » (décision 2026-11-18) : fiche CV structurée générée par
+ *  OffRec pour un dossier transmis sur une offre du recruteur — jamais le
+ *  PDF, aucune coordonnée, aucun score. 404 / 403 sinon. */
+export function apiRecruiterCvSheet(suggestionId: string) {
+  return request<{ sheet: RecruiterCvSheet }>(`/match-suggestions/${suggestionId}/cv`).then((r) => r.sheet)
 }
 
 /** Intérêt sans date — candidat uniquement, sur une ligne héritée

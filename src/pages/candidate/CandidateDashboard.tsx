@@ -473,7 +473,7 @@ export function CandidateDashboard() {
         ) : (
           <>
             {openDossiers.length > 0 ? (
-              <div className="dash-dossiers">{openDossiers.map(renderDossier)}</div>
+              <div className="card-grid">{openDossiers.map(renderDossier)}</div>
             ) : (
               <p className="dash-closed-empty">Aucun dossier en cours : vos dossiers clos sont rangés ci-dessous.</p>
             )}
@@ -486,7 +486,7 @@ export function CandidateDashboard() {
                   Ces dossiers sont clos. Votre profil reste proposé par OffRec pour d’autres offres qui correspondent à
                   vos compétences.
                 </p>
-                <div className="dash-dossiers">{closedDossiers.map(renderDossier)}</div>
+                <div className="card-grid">{closedDossiers.map(renderDossier)}</div>
               </details>
             )}
           </>

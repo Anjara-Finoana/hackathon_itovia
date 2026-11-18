@@ -3,7 +3,6 @@ import { prisma } from '../lib/prisma.js'
 import { requireRole } from '../middleware/rbac.js'
 import { requireAuth } from '../middleware/auth.js'
 import { toDomainOpportunity, type DbOpportunity } from '../lib/domain.js'
-import { computeMatchFit } from '../lib/preselection.js'
 import { clip, scheduleAdminNotification } from '../lib/notify.js'
 import {
   activeRow,
@@ -33,7 +32,8 @@ import {
 import { STALE_SUGGESTION_ERROR, commitMatchTransition } from '../lib/preselection-service.js'
 import { otherDossiersSummary, withdrawFromOtherDossiers } from '../lib/withdraw-others.js'
 import { HIRING_SUPPORTED, displayedRound, loadLinkedPlacements, omitHiringColumns } from '../lib/hiring-store.js'
-import { candidateHiringPhase, hiringPhase } from '../../../src/lib/hiring.js'
+import { RECRUITER_FORBIDDEN_KEYS, candidateHiringPhase, findForbiddenKeys, hiringPhase } from '../../../src/lib/hiring.js'
+import { buildRecruiterCvSheet } from '../lib/recruiter-cv.js'
 import type { MatchSuggestion as DbMatchSuggestion } from '@prisma/client'
 import {
   absenceReplySchema,
@@ -49,7 +49,6 @@ import {
   recruiterInterviewQuerySchema,
 } from '../lib/validation.js'
 import type { Response } from 'express'
-import type { CandidateProfile, Opportunity } from '../../../src/types/index.js'
 
 const router = Router()
 
@@ -157,13 +156,13 @@ router.get('/mine', requireRole('candidate'), async (req, res, next) => {
  * un profil décliné (`ecartee`) sort de cette liste : c'est ce qui le
  * "désélectionne" côté recruteur, plus besoin d'y revenir dessus.
  *
- * Chaque profil porte `fit`, son adéquation critère par critère avec l'offre
- * du recruteur (`computeMatchFit`) : uniquement des données dérivées des
- * champs de la liste blanche ci-dessus et de sa propre offre. Jamais
- * l'origine de la suggestion, l'indice « présent dans le CV », ni rien de la
- * vérification du CV. Tri : par offre, de la plus récemment publiée
+ * Décision 2026-11-18 : le score de matching n'est plus montré au
+ * recruteur — ni `score`, ni `reasons`, ni `preselectionRank`, ni `fit`
+ * (adéquation critère par critère) dans la réponse (`RECRUITER_FORBIDDEN_KEYS`).
+ * Jamais l'origine de la suggestion, l'indice « présent dans le CV », ni rien
+ * de la vérification du CV. Tri : par offre, de la plus récemment publiée
  * (`Opportunity.createdAt`) à la plus ancienne, id de l'offre en départage,
- * puis score décroissant et id du dossier.
+ * puis score décroissant (lu en interne, jamais renvoyé) et id du dossier.
  *
  * Sous-lot 5 : `proposals` (toutes les versions, vue recruteur D3 : la
  * catégorie d'un refus, jamais sa précision), `proposal` (la dernière) et
@@ -187,21 +186,15 @@ router.get('/received', requireRole('recruiter'), async (req, res, next) => {
         id: true,
         opportunityId: true,
         candidateId: true,
+        // Tri interne seulement (décision 2026-11-18) : retiré de la réponse.
         score: true,
-        reasons: true,
         status: true,
-        preselectionRank: true,
         createdAt: true,
         updatedAt: true,
         opportunity: {
           select: {
             id: true,
             title: true,
-            requiredSkills: true,
-            province: true,
-            city: true,
-            level: true,
-            opportunityType: true,
             // Date de publication de l'offre (ordre d'affichage, plus récente d'abord).
             createdAt: true,
           },
@@ -220,7 +213,6 @@ router.get('/received', requireRole('recruiter'), async (req, res, next) => {
     const now = new Date()
     const suggestions = rows
       .map(({ opportunity, ...suggestion }) => {
-        const profile = suggestion.candidate.candidateProfile
         const context = contexts.get(suggestion.id)
         const interview = context ? displayedRound(context.rows) : undefined
         const active = context ? activeRow(context) : undefined
@@ -237,24 +229,6 @@ router.get('/received', requireRole('recruiter'), async (req, res, next) => {
           proposals: (proposalRows.get(suggestion.id) ?? []).map((row) => proposalView(row, 'recruiter', recruiterId, now)),
           proposal: latestProposalView(proposalRows.get(suggestion.id), 'recruiter', recruiterId, now),
           placement: placements.get(suggestion.id) ?? null,
-          fit: profile
-            ? computeMatchFit(
-                {
-                  skills: profile.skills,
-                  province: profile.province,
-                  city: profile.city,
-                  experienceLevel: profile.experienceLevel as CandidateProfile['experienceLevel'],
-                  desiredOpportunityTypes: profile.desiredOpportunityTypes as CandidateProfile['desiredOpportunityTypes'],
-                },
-                {
-                  requiredSkills: opportunity.requiredSkills,
-                  province: opportunity.province,
-                  city: opportunity.city,
-                  level: opportunity.level as Opportunity['level'],
-                  opportunityType: opportunity.opportunityType as Opportunity['opportunityType'],
-                },
-              )
-            : null,
         }
       })
       .sort(
@@ -264,6 +238,8 @@ router.get('/received', requireRole('recruiter'), async (req, res, next) => {
           b.score - a.score ||
           a.id.localeCompare(b.id),
       )
+      // Le score sert au tri ci-dessus, jamais renvoyé au recruteur.
+      .map(({ score: _score, ...suggestion }) => suggestion)
     res.json({ suggestions })
     scheduleHiringJobs()
   } catch (err) {
@@ -317,6 +293,95 @@ router.get('/other-dossiers', requireRole('candidate'), async (req, res, next) =
 router.post('/withdraw-others', requireRole('candidate'), async (req, res, next) => {
   try {
     sendOutcome(res, await withdrawFromOtherDossiers(req.session!.sub))
+  } catch (err) {
+    next(err)
+  }
+})
+
+/** Statuts d'un dossier transmis au recruteur (mêmes que `/received`). */
+const RECRUITER_CV_STATUSES = ['proposee_recruteur', 'interet_recruteur', 'mise_en_relation'] as const
+
+/**
+ * « Voir le CV » (décision produit 2026-11-18) : fiche CV STRUCTURÉE générée
+ * par OffRec pour un dossier transmis au recruteur (`proposee_recruteur`,
+ * `interet_recruteur`, `mise_en_relation`, quelle que soit l'origine), sur
+ * une de SES offres — jamais le PDF original ni son chemin, jamais l'email,
+ * le téléphone, l'adresse ou un lien, jamais les drapeaux ni la note de
+ * vérification, jamais le score, le rang ni les raisons du matching.
+ * Liste blanche (`buildRecruiterCvSheet`, lib/recruiter-cv.ts), textes du CV
+ * filtrés, contrôle `findForbiddenKeys(RECRUITER_FORBIDDEN_KEYS)` avant
+ * l'envoi (500 sinon), `AuditLog` `recruiter_cv_viewed` `{ suggestionId }`.
+ * 404 si le dossier n'existe pas ou n'est pas sur une offre du recruteur ;
+ * 403 s'il n'est pas (ou plus) transmis.
+ */
+router.get('/:id/cv', requireRole('recruiter'), async (req, res, next) => {
+  try {
+    const recruiterId = req.session!.sub
+    const row = await prisma.matchSuggestion.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        status: true,
+        opportunity: { select: { id: true, title: true, recruiterId: true } },
+        candidate: {
+          select: {
+            candidateProfile: {
+              select: {
+                fullName: true,
+                province: true,
+                city: true,
+                educationLevel: true,
+                experienceLevel: true,
+                skills: true,
+                desiredOpportunityTypes: true,
+                availability: true,
+                sector: true,
+                cvVerificationStatus: true,
+                cvProfessionalTitle: true,
+                cvProfessionalSummary: true,
+                cvExperiences: true,
+                cvEducation: true,
+                cvCertifications: true,
+                cvProjects: true,
+                cvLanguages: true,
+                cvTechnologies: true,
+                cvYearsOfExperience: true,
+                cvAvailability: true,
+                cvExtractionDate: true,
+              },
+            },
+          },
+        },
+      },
+    })
+    if (!row || row.opportunity.recruiterId !== recruiterId) {
+      res.status(404).json({ error: 'Dossier introuvable.' })
+      return
+    }
+    if (!(RECRUITER_CV_STATUSES as readonly string[]).includes(row.status)) {
+      res.status(403).json({ error: 'Ce profil ne vous est pas (ou plus) transmis par OffRec.' })
+      return
+    }
+    const profile = row.candidate.candidateProfile
+    if (!profile) {
+      res.status(404).json({ error: 'Le profil de ce candidat n’est pas disponible.' })
+      return
+    }
+    const sheet = buildRecruiterCvSheet({
+      suggestionId: row.id,
+      opportunity: { id: row.opportunity.id, title: row.opportunity.title },
+      profile,
+    })
+    const leaks = findForbiddenKeys(sheet, RECRUITER_FORBIDDEN_KEYS)
+    if (leaks.length > 0) {
+      console.error('[recruiter-cv] clés interdites dans la fiche CV', leaks)
+      res.status(500).json({ error: 'La fiche CV n’a pas pu être générée.' })
+      return
+    }
+    await prisma.auditLog.create({
+      data: { userId: recruiterId, action: 'recruiter_cv_viewed', metadata: { suggestionId: row.id } },
+    })
+    res.json({ sheet })
   } catch (err) {
     next(err)
   }
@@ -420,6 +485,12 @@ function declinedView(row: DbMatchSuggestion) {
   }
 }
 
+/** Vue du recruteur : sans score, raisons ni rang (décision 2026-11-18). */
+function recruiterDeclinedView(row: DbMatchSuggestion) {
+  const { score: _score, reasons: _reasons, preselectionRank: _rank, ...view } = declinedView(row)
+  return view
+}
+
 router.post('/:id/decline', async (req, res, next) => {
   try {
     const role = req.session!.role
@@ -503,7 +574,7 @@ router.post('/:id/decline', async (req, res, next) => {
         },
       },
     })
-    res.json({ suggestion: declinedView(updated) })
+    res.json({ suggestion: recruiterDeclinedView(updated) })
     const hadInterest = suggestion.status === 'interet_recruteur'
     scheduleAdminNotification({
       event: 'recruiter_declined',

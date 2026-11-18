@@ -295,11 +295,11 @@ router.get('/:id/shortlist', requireRole('recruiter'), async (req, res, next) =>
         id: true,
         candidateId: true,
         status: true,
-        score: true,
-        reasons: true,
         candidate: { select: { candidateProfile: { select: { fullName: true } } } },
       },
-      orderBy: { score: 'desc' },
+      // Tri interne par score (décision 2026-11-18 : le score n'est plus
+      // renvoyé au recruteur), id en départage.
+      orderBy: [{ score: 'desc' }, { id: 'asc' }],
     })
     const matched = suggestions
       .filter((s) => s.candidate.candidateProfile)
@@ -309,13 +309,13 @@ router.get('/:id/shortlist', requireRole('recruiter'), async (req, res, next) =>
         candidateId: s.candidateId,
         fullName: s.candidate.candidateProfile!.fullName,
         status: s.status,
-        match: { score: s.score, reasons: s.reasons },
       }))
 
-    // Talents proposés par un agent : deux scores côte à côte, jamais
-    // additionnés. Tri : adéquation décroissante, puis confiance (niveau, E,
-    // sources) pour départager à adéquation égale, puis ancienneté de la
-    // proposition, puis id ; coupe à 10 APRÈS le tri.
+    // Talents proposés par un agent. Tri : adéquation décroissante (score
+    // interne, jamais renvoyé au recruteur — décision 2026-11-18), puis
+    // confiance (niveau, E, sources) pour départager à adéquation égale, puis
+    // ancienneté de la proposition, puis id ; coupe à 10 APRÈS le tri. Seule
+    // la confiance est renvoyée.
     const proposals = await prisma.talentOpportunityProposal.findMany({
       where: { opportunityId: opportunity.id },
       include: { talent: { include: { verifications: { orderBy: { verifiedAt: 'desc' }, take: 1 } } } },
@@ -350,7 +350,7 @@ router.get('/:id/shortlist', requireRole('recruiter'), async (req, res, next) =>
     res.json({
       opportunity: { id: opportunity.id, title: opportunity.title },
       matched,
-      proposed: proposed.slice(0, 10),
+      proposed: proposed.slice(0, 10).map(({ match: _match, ...talent }) => talent),
     })
   } catch (err) {
     next(err)

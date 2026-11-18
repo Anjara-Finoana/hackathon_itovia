@@ -25,7 +25,8 @@ function shortLevel(label: string): string {
 /**
  * Adéquation d'un profil avec une offre, critère par critère : compétences
  * requises couvertes / manquantes, lieu, niveau, type. Calculée par le
- * serveur (`computeMatchFit`), identique pour l'admin et le recruteur.
+ * serveur (`computeMatchFit`). Admin seulement : depuis la décision
+ * 2026-11-18, ni le score ni l'adéquation ne sont montrés au recruteur.
  */
 export function MatchFitDetail({ fit, cvHintSkills = [] }: MatchFitDetailProps) {
   const { covered, missing } = fit.skills

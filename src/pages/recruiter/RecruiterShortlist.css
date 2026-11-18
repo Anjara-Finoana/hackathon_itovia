@@ -39,10 +39,11 @@
   overflow-wrap: anywhere;
 }
 
-/* Deux scores côte à côte, visuellement distincts, jamais un total. */
+/* Confiance seule : le score de matching n'est plus montré au recruteur
+   (décision 2026-11-18). */
 .rsl-scores {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   margin-top: 0.9rem;
 }
@@ -58,10 +59,6 @@
   min-width: 0;
 }
 
-.rsl-score-match {
-  background: var(--color-bg);
-}
-
 .rsl-score-trust {
   background: var(--color-bg-subtle);
   border-style: dashed;
@@ -73,13 +70,6 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-ink-muted);
-}
-
-.rsl-score-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-ink);
-  font-variant-numeric: tabular-nums;
 }
 
 .rsl-score-note {

@@ -106,6 +106,8 @@ const ACTIONS: Record<string, ActionDef> = {
   // Offres et recruteurs (décisions des recruteurs sur les profils proposés)
   recruiter_interested: { family: 'recruteurs', label: 'Recruteur intéressé par un profil' },
   recruiter_declined: { family: 'recruteurs', label: 'Recruteur a écarté un profil' },
+  // Fiche CV structurée (décision 2026-11-18) : jamais le PDF ni une coordonnée
+  recruiter_cv_viewed: { family: 'recruteurs', label: 'Fiche CV consultée par le recruteur' },
   // Offre pourvue (décision D1, sous-lot 5)
   opportunity_filled: { family: 'recruteurs', label: 'Offre pourvue' },
   opportunity_reopened: { family: 'recruteurs', label: 'Offre pourvue rouverte' },
@@ -570,7 +572,8 @@ function describe(log: ActivityLog, ctx: Context): Described {
     case 'candidate_interested':
     case 'candidate_declined':
     case 'recruiter_interested':
-    case 'recruiter_declined': {
+    case 'recruiter_declined':
+    case 'recruiter_cv_viewed': {
       const parts = suggestionParts(ctx, meta)
       return {
         detail: joinParts([parts.candidate, str(meta, 'source') === 'withdraw_others' && 'retrait de ses autres dossiers']),

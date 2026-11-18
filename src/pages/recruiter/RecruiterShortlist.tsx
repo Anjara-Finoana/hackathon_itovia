@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Send, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FileText, Send, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -10,6 +10,7 @@ import { VerificationBadge } from '../../components/ui/VerificationBadge'
 import { EndorsementItem, jobMonth } from '../../components/trust/EndorsementItem'
 import { TrustLevelBadge } from '../../components/trust/TrustLevelBadge'
 import { InterviewScheduleModal } from '../../components/interview/InterviewScheduleModal'
+import { RecruiterCvModal } from '../../components/matching/RecruiterCvModal'
 import { HiringPhaseBadge } from '../../components/hiring/HiringPhaseBadge'
 import { TALENT_STATUS_LABELS } from '../../data/endorsements'
 import { useApp } from '../../context/AppContext'
@@ -57,6 +58,8 @@ export function RecruiterShortlist() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [error, setError] = useState('')
   const [scheduling, setScheduling] = useState<ShortlistMatched | null>(null)
+  // « Voir le CV » (décision 2026-11-18), candidats diplômés seulement.
+  const [cvTarget, setCvTarget] = useState<ShortlistMatched | null>(null)
   /** Action en cours (clé `decline:<id>` / `place:<id>`) : évite le double clic. */
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -176,8 +179,8 @@ export function RecruiterShortlist() {
         </h2>
         {data.proposed.length > 0 && (
           <p className="rsl-explain">
-            Classés par adéquation à l’offre. À adéquation égale, la confiance (recommandations vérifiées par un agent)
-            départage. Les deux scores ne sont jamais additionnés.
+            Classés par OffRec selon leur adéquation à l’offre ; à adéquation égale, la confiance (recommandations
+            vérifiées par un agent) départage.
           </p>
         )}
         {data.proposed.length === 0 ? (
@@ -219,11 +222,6 @@ export function RecruiterShortlist() {
                 </div>
 
                 <div className="rsl-scores">
-                  <div className="rsl-score rsl-score-match">
-                    <span className="rsl-score-label">Adéquation à l’offre</span>
-                    <span className="rsl-score-value">{p.match.score} %</span>
-                    {p.match.reasons.length > 0 && <span className="rsl-score-note">{p.match.reasons.slice(0, 2).join(' · ')}</span>}
-                  </div>
                   <div className="rsl-score rsl-score-trust">
                     <span className="rsl-score-label">Confiance</span>
                     <TrustLevelBadge level={p.trust.level} index={p.trust.index} />
@@ -297,8 +295,7 @@ export function RecruiterShortlist() {
                   <div className="rsl-matched">
                     <div className="rsl-matched-main">
                       <strong>{m.fullName || 'Candidat'}</strong>
-                      <VerificationBadge kind="ai" subtitle={`${m.match.score}% de compatibilité`} />
-                      <p className="rsl-muted">{m.match.reasons.slice(0, 2).join(' · ')}</p>
+                      <VerificationBadge kind="ai" subtitle="présélectionné par OffRec" />
                       {phase ? (
                         <HiringPhaseBadge audience="recruiter" phase={phase} />
                       ) : (
@@ -308,6 +305,16 @@ export function RecruiterShortlist() {
                       )}
                     </div>
                     <div className="rsl-matched-actions">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-haspopup="dialog"
+                        aria-label={`Voir le CV de ${m.fullName || 'ce candidat'}`}
+                        onClick={() => setCvTarget(m)}
+                      >
+                        <FileText size={14} aria-hidden />
+                        Voir le CV
+                      </Button>
                       {canSchedule && (
                         <>
                           <Button size="sm" disabled={busy !== null} aria-haspopup="dialog" onClick={() => openScheduling(m)}>
@@ -343,6 +350,14 @@ export function RecruiterShortlist() {
               )
             })}
           </div>
+        )}
+
+        {cvTarget && (
+          <RecruiterCvModal
+            suggestionId={cvTarget.suggestionId}
+            candidateName={cvTarget.fullName || 'ce candidat'}
+            onClose={() => setCvTarget(null)}
+          />
         )}
 
         {scheduling && (

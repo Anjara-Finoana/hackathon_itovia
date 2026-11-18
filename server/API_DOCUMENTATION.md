@@ -755,10 +755,9 @@ Authorization: Bearer {token}
 
 **Description** :
 - `opportunity` : `{ id, title }` de l'offre (titre repris dans la modale d'entretien).
-- `matched` : candidats diplômés transmis par OffRec (`proposee_recruteur` et au-delà), triés par score. Liste blanche : le **nom** du candidat seulement — **jamais** son email ni son téléphone (corrigé le 2026-10-16 : l'email était renvoyé). « Ce profil m'intéresse » passe par `POST /match-suggestions/{id}/interview` (modale `InterviewScheduleModal`), comme dans « Candidats proposés » ; l'ancien `/interest` répond `400`.
-- `proposed` : talents non-diplômés proposés par un agent. Deux scores **séparés, jamais additionnés** :
-  `match` (« Adéquation à l'offre », `scoreOpportunity()` inchangé via `talentMatch()`) et `trust`
-  (« Confiance », calculée par le serveur). Tri : `match.score` décroissant → `compareSubjectTrust`
+- **Décision 2026-11-18** : le score de matching n'est plus renvoyé au recruteur (ni `match`, ni score, ni raisons) ; il ne sert plus qu'au tri côté serveur.
+- `matched` : candidats diplômés transmis par OffRec (`proposee_recruteur` et au-delà), triés par score décroissant puis id (score interne, non renvoyé). Liste blanche : le **nom** du candidat seulement — **jamais** son email ni son téléphone (corrigé le 2026-10-16 : l'email était renvoyé). « Ce profil m'intéresse » passe par `POST /match-suggestions/{id}/interview` (modale `InterviewScheduleModal`), comme dans « Candidats proposés » ; l'ancien `/interest` répond `400`.
+- `proposed` : talents non-diplômés proposés par un agent, avec `trust` (« Confiance », calculée par le serveur) seulement. Tri : adéquation (`scoreOpportunity()` inchangé via `talentMatch()`, calculée en interne, jamais renvoyée) décroissante → `compareSubjectTrust`
   (niveau, E, sources) → `proposedAt` croissant → `talentId` ; coupe à 10 **après** le tri.
 - Jamais dans `proposed` : téléphone, commentaire des recommandations, nom des auteurs, photo ou URL de preuve, empreinte d'auteur.
 
@@ -768,7 +767,7 @@ Authorization: Bearer {token}
   "opportunity": { "id": "uuid", "title": "Développeur React" },
   "matched": [
     { "source": "matche_ia", "suggestionId": "uuid", "candidateId": "uuid", "fullName": "…",
-      "status": "proposee_recruteur", "match": { "score": 82, "reasons": ["…"] } }
+      "status": "proposee_recruteur" }
   ],
   "proposed": [
     {
@@ -780,7 +779,6 @@ Authorization: Bearer {token}
       "district": "Analamahitsy",
       "status": "place",
       "proposedAt": "2026-09-05T08:00:00.000Z",
-      "match": { "score": 44, "reasons": ["Même province : Antananarivo", "Compatible avec votre disponibilité"] },
       "trust": {
         "index": 45, "level": "recommande", "recommendationCount": 4, "independentSources": 4,
         "sourcesWithProof": 1, "evidenceWeight": 2.5, "lastJobAt": "2026-07-12T00:00:00.000Z",
@@ -2903,7 +2901,7 @@ OffRec est l'intermédiaire : candidat et recruteur ne se contactent jamais dire
 
 **Description** : profils transmis par OffRec (validation admin ou envoi direct du moteur) pour les offres de ce recruteur — statuts `proposee_recruteur`, `interet_recruteur`, `mise_en_relation`. Le profil candidat est une liste blanche : ni email, ni téléphone, ni CV, ni vérification du CV, ni consentement (l'email du compte candidat n'est plus renvoyé depuis le 2026-10-14).
 
-Triés par offre, de la plus récemment publiée à la plus ancienne (`opportunity.createdAt` décroissant, id de l'offre en départage), puis par score décroissant (id du dossier en départage). `opportunity` ne porte que `id`, `title` et `createdAt` (date de publication de l'offre). Chaque profil porte `fit`, son adéquation critère par critère avec l'offre du recruteur (même calcul que la présélection admin, uniquement dérivé des champs de la liste blanche et de sa propre offre ; `null` si le profil est introuvable), et `preselectionRank`, son rang dans la présélection au moment de la transmission groupée (`null` pour un envoi direct du moteur ou une transmission unitaire). Ne sont jamais transmis : l'origine de la suggestion, l'indice « présent dans le CV », le statut de vérification et les points relevés sur le CV.
+Triés par offre, de la plus récemment publiée à la plus ancienne (`opportunity.createdAt` décroissant, id de l'offre en départage), puis par score décroissant (id du dossier en départage ; score lu en interne, jamais renvoyé). `opportunity` ne porte que `id`, `title` et `createdAt` (date de publication de l'offre). **Décision 2026-11-18** : le score de matching est réservé aux admins — ni `score`, ni `reasons`, ni `preselectionRank`, ni `fit` (adéquation critère par critère) dans cette réponse (clés `score`, `preselectionRank`, `fit` dans `RECRUITER_FORBIDDEN_KEYS`). Ne sont jamais transmis : l'origine de la suggestion, l'indice « présent dans le CV », le statut de vérification et les points relevés sur le CV.
 
 Pour un dossier `mise_en_relation` (sous-lot 3) : `interview` (tour actif, sinon le dernier — rétrocompatibilité), `interviews` (tous les tours, triés), `activeInterview` (tour sans issue, ou `null`) et `phase` (`entretien_a_planifier` · `tour_planifie` · `tour_annule` · `issue_a_renseigner` · `second_entretien_a_planifier` · `absent` · `retenu` · `proposition_envoyee` · `embauche` · `embauche_annulee` · `clos_proposition_refusee` · `non_retenu` · `poste_pourvu`, `null` hors mise en relation). Vue recruteur d'un tour (décision D3) : l'objet `interview` **plus** `outcome`, `outcomeReason`, `outcomeAt`, et `outcomeNote` **seulement pour son auteur** — jamais `absenceReply` ni `outcomeById`. Sous-lot 5 : `proposals` (toutes les versions, objet §5i vue recruteur — catégorie d'un refus, jamais sa précision ; raison d'un retrait), `proposal` (la dernière, ou `null`) et `placement` (`{ id, stage, origin, startDate }` du placement relié au dossier, ou `null`) ; `phase` couvre désormais `proposition_envoyee`, `embauche`, `clos_proposition_refusee`, `poste_pourvu` (une proposition expirée ou retirée ramène à `retenu`).
 
@@ -2915,19 +2913,10 @@ Pour un dossier `mise_en_relation` (sous-lot 3) : `interview` (tour actif, sinon
       "id": "uuid",
       "opportunityId": "uuid",
       "candidateId": "uuid",
-      "score": 87,
-      "reasons": ["Compétences alignées : React, Git"],
       "status": "proposee_recruteur",
-      "preselectionRank": 2,
       "createdAt": "2026-10-08T10:00:00.000Z",
       "updatedAt": "2026-10-08T10:00:00.000Z",
       "opportunity": { "id": "uuid", "title": "Développeur React", "createdAt": "2026-10-01T09:00:00.000Z" },
-      "fit": {
-        "skills": { "covered": ["React", "Git"], "missing": ["TypeScript"] },
-        "location": { "match": "meme_ville", "province": "Antananarivo", "city": "Antananarivo" },
-        "level": { "required": "junior", "candidate": "junior", "conforme": true },
-        "type": { "offered": "emploi", "match": "souhaite" }
-      },
       "candidate": {
         "id": "uuid",
         "candidateProfile": {
@@ -2938,6 +2927,51 @@ Pour un dossier `mise_en_relation` (sous-lot 3) : `interview` (tour actif, sinon
       }
     }
   ]
+}
+```
+
+---
+
+### 2b. Fiche CV structurée (« Voir le CV » — Recruteur, décision 2026-11-18)
+
+**Endpoint** : `GET /match-suggestions/{id}/cv`
+
+**Rôle requis** : `recruiter`
+
+**Description** : fiche CV **générée par OffRec** pour un dossier transmis au recruteur (`proposee_recruteur`, `interet_recruteur`, `mise_en_relation`, quelle que soit l'origine admin ou système), sur une de **ses** offres. Ce n'est **jamais** le PDF original ni son chemin. Construite par liste blanche (`buildRecruiterCvSheet()`, `server/src/lib/recruiter-cv.ts`, module pur vérifié par `scripts/hiring-examples.ts`), contrôlée par `findForbiddenKeys(RECRUITER_FORBIDDEN_KEYS)` avant l'envoi (`500` sinon).
+
+- `profile` : données **confirmées** du profil (nom, niveau d'études, expérience, compétences, province / ville, disponibilité, types d'opportunité, secteur).
+- `cvVerified` : `true` si la vérification humaine du CV est validée (badge « CV vérifié par OffRec ») — jamais le statut détaillé, les drapeaux ni la note de vérification.
+- `extracted` : sections extraites du CV (titre, résumé, années d'expérience, disponibilité indiquée, expériences, formations, certifications, projets, langues, outils), ou `null` sans extraction ou pour un CV rejeté par la vérification. Dates réduites au mois (`AAAA-MM`) ou à l'année. Chaque texte libre est filtré : emails, liens (URL, LinkedIn, GitHub…) et numéros de téléphone sont remplacés par « [coordonnée masquée] » (`masked: true` le signale), puis recontrôlés (`contactDetailsError()` + liens) — un texte encore douteux est retiré ; un outil ou une technologie qui porte une coordonnée est retiré.
+- Jamais : email, téléphone, adresse, liens (`cvExtractedInfo`, `credentialUrl`, `url` d'un projet ne sont jamais lus), fichier, empreinte, drapeaux, note de vérification, compétences suggérées non confirmées (`cvSkillsSuggested`), score, rang, raisons ou adéquation du matching, origine du dossier.
+
+Écrit un `AuditLog` `recruiter_cv_viewed` `{ suggestionId }` (libellé dans `/admin/activite`, famille `recruteurs`).
+
+**Erreurs** : `404` « Dossier introuvable. » (dossier inexistant ou offre d'un autre recruteur) ; `403` « Ce profil ne vous est pas (ou plus) transmis par OffRec. » (`suggeree`, `ecartee`, statuts hérités) ; `404` si le profil candidat n'existe pas.
+
+**Response** (200) :
+```json
+{
+  "sheet": {
+    "suggestionId": "uuid",
+    "opportunity": { "id": "uuid", "title": "Développeur React" },
+    "profile": {
+      "fullName": "…", "educationLevel": "licence", "experienceLevel": "junior", "skills": ["React"],
+      "province": "Analamanga", "city": "Antananarivo", "availability": "immediate",
+      "desiredOpportunityTypes": ["emploi"], "sector": "digital"
+    },
+    "cvVerified": true,
+    "extracted": {
+      "professionalTitle": "Développeuse web", "summary": "…", "yearsOfExperience": 3, "availability": "Immédiate",
+      "experiences": [{ "jobTitle": "…", "company": "…", "location": "…", "start": "2021-03", "end": null, "isCurrent": true, "description": "…", "technologies": ["React"] }],
+      "education": [{ "degree": "Licence", "school": "…", "field": "Informatique", "graduation": "2020-07", "description": null }],
+      "certifications": [{ "name": "…", "issuer": "…", "year": "2022" }],
+      "projects": [{ "name": "…", "role": null, "description": "…", "technologies": [] }],
+      "languages": [{ "name": "Français", "level": "C1" }],
+      "technologies": ["Docker"],
+      "masked": false
+    }
+  }
 }
 ```
 
@@ -2970,7 +3004,7 @@ Pour un dossier `mise_en_relation` (sous-lot 3) : `interview` (tour actif, sinon
 - **Recruteur** : écarte un profil `proposee_recruteur` ou `interet_recruteur` → `ecartee`. `AuditLog` `recruiter_declined`
 - **Écriture conditionnelle** (depuis 2026-10-16) : les deux retraits passent par `commitMatchTransition()` (`lib/preselection-service.ts`, `updateMany` sur le statut lu). Si le dossier a changé entre la lecture et l'écriture (entretien fixé par le recruteur, transition admin, autre retrait), rien n'est écrit et la réponse est `409` « Ce dossier a changé entre-temps. Rechargez la page. » — un retrait et un « Ce profil m'intéresse » simultanés ne passent jamais tous les deux
 
-**Response** (200) : `{ "suggestion": { "id", "opportunityId", "candidateId", "score", "reasons", "status": "ecartee", "preselectionRank", "createdAt", "updatedAt" } }` (liste blanche, sans `origin`)
+**Response** (200) : `{ "suggestion": { "id", "opportunityId", "candidateId", "score", "reasons", "status": "ecartee", "preselectionRank", "createdAt", "updatedAt" } }` (liste blanche, sans `origin`) pour le candidat ; pour le recruteur, la même sans `score`, `reasons` ni `preselectionRank` (décision 2026-11-18)
 
 **Erreurs** : `400` dossier déjà en `mise_en_relation` / `ecartee` (candidat) ou statut incompatible (recruteur) · `403` · `404` · `409` dossier modifié entre-temps.
 
@@ -3017,7 +3051,7 @@ Il apparaît aussi dans `GET /match-suggestions/mine` (champ `interview`, **uniq
 - Candidat notifié **plateforme + email** (`notifyUser()`) : offre, entreprise, date et heure de Madagascar, durée, lien Meet ou « lien à venir », message, action Confirmer / Signaler un empêchement. Recruteur : notification de confirmation. Admins : `notifyAdmins` catégorie `recruteur` (sans email ni téléphone)
 - `AuditLog` `match_suggestion_status` (`source: recruiter_interview`) et `interview_created` (avec `round`)
 
-**Response** (201) : `{ "suggestion": { "id": "uuid", "status": "mise_en_relation", "…": "…" }, "interview": { … } }` — `suggestion` en liste blanche, sans `origin` (interne à OffRec, comme dans `/received`).
+**Response** (201) : `{ "suggestion": { "id": "uuid", "status": "mise_en_relation", "…": "…" }, "interview": { … } }` — `suggestion` en liste blanche (`id`, `opportunityId`, `candidateId`, `status`, `createdAt`, `updatedAt`), sans `origin` (interne à OffRec, comme dans `/received`) ni score, raisons ou rang de présélection (décision 2026-11-18).
 
 **Erreurs** : `400` corps invalide (date passée, < 2 h, > 60 jours, sans fuseau, durée, coordonnées dans le message), dossier non éligible (`ecartee`, `suggeree`…) ou 4e tour (« Nombre maximal de tours atteint (3). ») · `403` autre recruteur ou autre rôle · `404` dossier introuvable · `409` accord retiré, compte candidat suspendu/banni, entretien déjà fixé (un tour est actif, ou requête concurrente), suite sans nouvel entretien (`retenu`, `non_retenu`), offre pourvue, dossier modifié entre-temps · `503` client Prisma non régénéré / migration absente (message avec la marche à suivre).
 

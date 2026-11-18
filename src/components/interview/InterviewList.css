@@ -473,3 +473,42 @@ button.ivl-stat:focus-visible {
     flex: 1 1 auto;
   }
 }
+
+/* Entretiens en cartes (onglets « Entretiens » candidat et recruteur), dans
+   la grille partagée `.card-grid` (ui/Card.css) : une colonne, deux sur grand
+   écran. Chaque carte reprend l'aspect de `.card` (marge, rayon, ombre) et
+   empile date, personne, statut, alerte et actions ; le liseré gauche de
+   `.ivl-row` garde la couleur du statut. */
+.ivl-card-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ivl-card.ivl-row {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'when'
+    'who'
+    'state'
+    'alert'
+    'extra'
+    'actions';
+  align-content: start;
+  gap: 0.85rem;
+  padding: 1.35rem 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.ivl-card .ivl-state {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Actions groupées et alignées à droite dans la carte, à toute largeur
+   (prime sur la règle mobile `.ivl-actions`, plus spécifique). */
+.ivl-card .ivl-actions {
+  justify-content: flex-end;
+}

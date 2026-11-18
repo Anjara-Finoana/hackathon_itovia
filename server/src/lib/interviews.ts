@@ -286,12 +286,10 @@ function suggestionView(row: DbMatchSuggestion) {
     id: row.id,
     opportunityId: row.opportunityId,
     candidateId: row.candidateId,
-    score: row.score,
-    reasons: row.reasons,
     status: row.status,
     // Pas d'`origin` : renvoyé au recruteur, qui ne reçoit jamais l'origine
-    // de la suggestion (même liste blanche que `GET /received`).
-    preselectionRank: row.preselectionRank,
+    // de la suggestion (même liste blanche que `GET /received`). Ni score,
+    // ni raisons, ni rang de présélection (décision 2026-11-18).
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }

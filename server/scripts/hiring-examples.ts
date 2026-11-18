@@ -169,6 +169,7 @@ import {
   type MetricsRound,
   type ResearchRow,
 } from '../src/lib/hiring-metrics.js'
+import { CV_MASK, buildRecruiterCvSheet, hasContactDetails, maskContactDetails } from '../src/lib/recruiter-cv.js'
 
 /** Mardi 20 octobre 2026, 13 h 00 à Madagascar. */
 const NOW = new Date('2026-10-20T10:00:00.000Z')
@@ -1301,12 +1302,95 @@ check(
   'findForbiddenKeys repère alreadyPlaced',
   findForbiddenKeys({ items: [{ candidate: { alreadyPlaced: badge } }] }, RECRUITER_FORBIDDEN_KEYS).join() === 'items[0].candidate.alreadyPlaced',
 )
+check(
+  'RECRUITER_FORBIDDEN_KEYS contient score, preselectionRank et fit (décision 2026-11-18)',
+  ['score', 'preselectionRank', 'fit'].every((key) => RECRUITER_FORBIDDEN_KEYS.includes(key)),
+)
+check(
+  'findForbiddenKeys : le score d’un dossier est repéré, la confiance d’un talent ne l’est pas',
+  findForbiddenKeys(
+    { suggestions: [{ id: 's1', score: 82 }], proposed: [{ trust: { index: 40, level: 'recommande', reasons: ['x'] } }] },
+    RECRUITER_FORBIDDEN_KEYS,
+  ).join() === 'suggestions[0].score',
+)
 check('schéma d’acceptation : confirmCumulative accepté', hireProposalAcceptSchema.safeParse({ proposalId: '11111111-1111-4111-8111-111111111111', revision: 0, confirmCumulative: true }).success)
 check('schéma d’acceptation : confirmCumulative non booléen refusé', !hireProposalAcceptSchema.safeParse({ proposalId: '11111111-1111-4111-8111-111111111111', revision: 0, confirmCumulative: 'oui' }).success)
 
 // 5. Mesure : un dossier retiré par le candidat a sa propre situation.
 const fw = facts(mDossier({ id: 'w1', candidateWithdrawn: true }), [mRound({ suggestionId: 'w1', round: 1, status: 'annule' })])
 check('mesure : dossier retiré → situation retrait_candidat', fw?.situation === 'retrait_candidat' && fw.phase === 'retrait_candidat', JSON.stringify({ s: fw?.situation, p: fw?.phase }))
+
+// ------------------------------------------------------------------
+// Fiche CV transmise au recruteur (décision 2026-11-18) : liste blanche,
+// aucune coordonnée, aucune clé interdite, aucun score.
+// ------------------------------------------------------------------
+console.log('\nFiche CV recruteur (décision 2026-11-18)')
+const cvSource = {
+  fullName: 'Rasoa Exemple',
+  province: 'Analamanga',
+  city: 'Antananarivo',
+  educationLevel: 'licence' as const,
+  experienceLevel: 'junior' as const,
+  skills: ['React', 'TypeScript'],
+  desiredOpportunityTypes: ['emploi' as const],
+  availability: 'immediate' as const,
+  sector: null,
+  cvVerificationStatus: 'verifie',
+  cvProfessionalTitle: 'Développeuse web — rasoa@example.mg',
+  cvProfessionalSummary: 'Joignable au +261 34 12 345 67 ou sur https://linkedin.com/in/rasoa. Projets ASP.NET et Node.js de 2018 - 2022.',
+  cvExperiences: [
+    {
+      jobTitle: 'Développeuse',
+      company: 'Société Test',
+      location: 'Antananarivo',
+      startDate: '2021-03-15',
+      endDate: null,
+      isCurrent: true,
+      description: 'Contact : 034 12 345 67, www.rasoa.dev',
+      technologies: ['React', 'github.com/rasoa', 'rasoa@example.mg'],
+      email: 'fuite@example.mg',
+    },
+  ],
+  cvEducation: [{ degree: 'Licence', school: 'Université', field: 'Informatique', graduationDate: '2020-07-01', description: null }],
+  cvCertifications: [{ name: 'Cert', issuer: 'Org', issueDate: '2022-05-01', expiryDate: null, credentialUrl: 'https://cert.example.com/x' }],
+  cvProjects: [{ name: 'Portfolio', description: 'Site perso', role: null, startDate: null, endDate: null, technologies: [], url: 'https://rasoa.dev' }],
+  cvLanguages: [{ name: 'Français', level: 'C1' }],
+  cvTechnologies: ['Docker', 'rasoa.dev/cv'],
+  cvYearsOfExperience: 3,
+  cvAvailability: 'Immédiate',
+  cvExtractionDate: new Date('2026-11-01T00:00:00Z'),
+  // Colonnes que la fiche ne doit JAMAIS lire, même si on les lui passe.
+  phone: '0341234567',
+  cvUrl: '/uploads/cv/rasoa.pdf',
+  cvFlags: [{ code: 'x', severity: 'alerte', message: 'interne' }],
+  cvVerificationNote: 'note interne',
+  cvExtractedInfo: { email: 'rasoa@example.mg', phone: '0341234567', linkedin: 'https://linkedin.com/in/rasoa' },
+  cvSkillsSuggested: ['Suggestion non confirmée'],
+}
+const cvSheet = buildRecruiterCvSheet({ suggestionId: 's-cv', opportunity: { id: 'o1', title: 'Offre' }, profile: cvSource })
+const cvJson = JSON.stringify(cvSheet)
+check('fiche CV : aucune clé interdite au recruteur', findForbiddenKeys(cvSheet, RECRUITER_FORBIDDEN_KEYS).length === 0, findForbiddenKeys(cvSheet, RECRUITER_FORBIDDEN_KEYS).join())
+check(
+  'fiche CV : ni clé de coordonnée, de fichier, de vérification ni de score',
+  findForbiddenKeys(cvSheet, ['email', 'phone', 'cvUrl', 'fileUrl', 'cvFlags', 'flags', 'cvVerificationNote', 'cvExtractedInfo', 'linkedin', 'url', 'credentialUrl', 'score', 'reasons', 'preselectionRank', 'cvSkillsSuggested', 'origin']).length === 0,
+)
+check('fiche CV : aucun email, téléphone ni lien dans le JSON', !/@|0341234567|34 12 345 67|https?:|www\.|linkedin|github|rasoa\.dev|uploads|note interne|Suggestion non confirmée/i.test(cvJson), cvJson)
+check('fiche CV : aucun texte restant ne porte de coordonnée', !hasContactDetails(cvJson))
+check('fiche CV : coordonnées masquées signalées', cvSheet.extracted?.masked === true && cvJson.includes(CV_MASK))
+check('fiche CV : période « 2018 - 2022 » et ASP.NET conservées', (cvSheet.extracted?.summary ?? '').includes('2018 - 2022') && (cvSheet.extracted?.summary ?? '').includes('ASP.NET'), cvSheet.extracted?.summary ?? '')
+check('fiche CV : badge vérifié', cvSheet.cvVerified === true)
+check('fiche CV : profil confirmé repris', cvSheet.profile.fullName === 'Rasoa Exemple' && cvSheet.profile.skills.join() === 'React,TypeScript')
+check('fiche CV : mois seulement (jamais le jour)', cvSheet.extracted?.experiences[0]?.start === '2021-03' && cvSheet.extracted?.education[0]?.graduation === '2020-07')
+check('fiche CV : technologies avec lien ou email retirées', cvSheet.extracted?.experiences[0]?.technologies.join() === 'React' && cvSheet.extracted?.technologies.join() === 'Docker')
+const cvRejected = buildRecruiterCvSheet({ suggestionId: 's', opportunity: { id: 'o', title: 't' }, profile: { ...cvSource, cvVerificationStatus: 'rejete' } })
+check('fiche CV : CV rejeté → ni extraction ni badge', cvRejected.extracted === null && cvRejected.cvVerified === false)
+const cvNone = buildRecruiterCvSheet({
+  suggestionId: 's',
+  opportunity: { id: 'o', title: 't' },
+  profile: { ...cvSource, cvVerificationStatus: 'non_verifie', cvExtractionDate: null, cvExperiences: null, cvEducation: null, cvProfessionalTitle: null, cvProfessionalSummary: null },
+})
+check('fiche CV : sans extraction → section CV absente, pas de badge', cvNone.extracted === null && cvNone.cvVerified === false)
+check('masque : email, lien et téléphone', maskContactDetails('a@b.mg https://x.mg 034 12 345 67').text === `${CV_MASK} ${CV_MASK} ${CV_MASK}`, maskContactDetails('a@b.mg https://x.mg 034 12 345 67').text)
 
 console.log(failures ? `\n${failures} échec(s) sur ${total} contrôles.` : `\nTous les contrôles sont OK (${total}).`)
 process.exit(failures ? 1 : 0)

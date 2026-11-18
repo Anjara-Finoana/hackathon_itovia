@@ -1,5 +1,5 @@
-/* Adéquation profil / offre, critère par critère — partagé par la
-   présélection admin et « Candidats proposés » côté recruteur. */
+/* Adéquation profil / offre, critère par critère — vues admin seulement
+   (décision 2026-11-18 : plus jamais montrée au recruteur). */
 
 .fitd {
   display: flex;

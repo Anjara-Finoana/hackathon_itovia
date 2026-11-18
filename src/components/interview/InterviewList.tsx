@@ -168,6 +168,8 @@ interface InterviewRowProps {
   /** Badges après le statut (tour, issue, phase du dossier). */
   badges?: ReactNode
   actions?: ReactNode
+  /** Classes ajoutées à la ligne (ex. présentation en carte côté candidat). */
+  className?: string
 }
 
 /**
@@ -184,12 +186,13 @@ export function InterviewRow({
   flag,
   badges,
   actions,
+  className,
 }: InterviewRowProps) {
   const end = interviewEnd(interview.scheduledAt, interview.durationMinutes)
   const upcoming = isInterviewUpcoming(interview)
   const Heading = headingLevel === 3 ? 'h3' : 'h4'
   return (
-    <li className={`ivl-row ivl-row-${interview.status}`}>
+    <li className={`ivl-row ivl-row-${interview.status}${className ? ` ${className}` : ''}`}>
       <div className="ivl-when">
         <time
           dateTime={interview.scheduledAt}

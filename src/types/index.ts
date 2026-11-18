@@ -395,6 +395,71 @@ export interface MatchSuggestion {
 }
 
 /* -------------------------------------------------------------------------
+ * Fiche CV structurée transmise au recruteur (décision produit 2026-11-18)
+ * — `GET /match-suggestions/:id/cv`. Générée par OffRec à partir du profil
+ * confirmé (et, s'il existe, du CV extrait), jamais le PDF original : aucune
+ * coordonnée (email, téléphone, adresse, lien), aucun drapeau ni note de
+ * vérification, aucun score, rang ni raison de matching. Les textes libres
+ * issus du CV sont filtrés (coordonnées remplacées par « [coordonnée masquée] »).
+ * ---------------------------------------------------------------------- */
+
+export interface RecruiterCvExperience {
+  jobTitle: string
+  company: string | null
+  location: string | null
+  /** « AAAA » ou « AAAA-MM », jamais une date complète. */
+  start: string | null
+  end: string | null
+  isCurrent: boolean
+  description: string | null
+  technologies: string[]
+}
+
+export interface RecruiterCvEducation {
+  degree: string
+  school: string | null
+  field: string | null
+  /** « AAAA » ou « AAAA-MM ». */
+  graduation: string | null
+  description: string | null
+}
+
+export interface RecruiterCvSheet {
+  suggestionId: string
+  opportunity: { id: string; title: string }
+  /** Données CONFIRMÉES par le candidat dans son profil. */
+  profile: {
+    fullName: string
+    educationLevel: EducationLevel | null
+    experienceLevel: ExperienceLevel | null
+    skills: string[]
+    province: string | null
+    city: string | null
+    availability: Availability | null
+    desiredOpportunityTypes: OpportunityType[]
+    sector: Sector | null
+  }
+  /** Badge « CV vérifié par OffRec » : vérification humaine validée. */
+  cvVerified: boolean
+  /** Données extraites du CV (non confirmées une à une par le candidat),
+   *  `null` quand aucune extraction n'existe. */
+  extracted: {
+    professionalTitle: string | null
+    summary: string | null
+    yearsOfExperience: number | null
+    availability: string | null
+    experiences: RecruiterCvExperience[]
+    education: RecruiterCvEducation[]
+    certifications: Array<{ name: string; issuer: string | null; year: string | null }>
+    projects: Array<{ name: string; role: string | null; description: string | null; technologies: string[] }>
+    languages: Array<{ name: string; level: string | null }>
+    technologies: string[]
+    /** Au moins une coordonnée a été masquée dans les textes du CV. */
+    masked: boolean
+  } | null
+}
+
+/* -------------------------------------------------------------------------
  * Entretiens (décision produit 2026-10-14) — miroir de Prisma `Interview`
  * ---------------------------------------------------------------------- */
 

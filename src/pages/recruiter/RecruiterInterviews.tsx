@@ -315,7 +315,8 @@ export function RecruiterInterviews() {
                       </div>
                     )}
                   </div>
-                  <ul className="ivl-list">
+                  {/* Même grille de cartes que l’onglet « Entretiens » du candidat. */}
+                  <ul className="card-grid ivl-card-list">
                     {group.items.map((item) => {
                       const due = isOutcomeRow(item)
                       const propose = !due && canPropose(item)
@@ -323,6 +324,7 @@ export function RecruiterInterviews() {
                       return (
                         <InterviewRow
                           key={item.interview.id}
+                          className="ivl-card"
                           audience="recruiter"
                           interview={item.interview}
                           heading={candidateLabel(item)}

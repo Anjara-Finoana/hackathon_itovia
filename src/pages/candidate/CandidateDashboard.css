@@ -127,11 +127,6 @@
   font-weight: 600;
 }
 
-.dash-dossiers {
-  display: grid;
-  gap: 1rem;
-}
-
 .dossier-card {
   display: flex;
   flex-direction: column;
@@ -242,13 +237,6 @@
 @media (min-width: 768px) {
   .dash-steps {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1100px) {
-  .dash-dossiers {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
   }
 }
 

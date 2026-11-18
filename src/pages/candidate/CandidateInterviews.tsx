@@ -240,7 +240,8 @@ export function CandidateInterviews() {
                       </div>
                     )}
                   </div>
-                  <ul className="ivl-list">
+                  {/* Même grille de cartes que « Mes dossiers en cours » du tableau de bord. */}
+                  <ul className="card-grid ivl-card-list">
                     {group.items.map((item) => {
                       const flag = item.interview.canExplainAbsence
                         ? ABSENCE_FLAG
@@ -248,6 +249,7 @@ export function CandidateInterviews() {
                       return (
                         <InterviewRow
                           key={item.interview.id}
+                          className="ivl-card"
                           audience="candidate"
                           interview={item.interview}
                           heading={companyLabel(item)}

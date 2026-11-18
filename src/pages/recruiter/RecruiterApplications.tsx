@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   ExternalLink,
   FileSignature,
+  FileText,
   Inbox,
   ListChecks,
   Search,
@@ -23,8 +24,8 @@ import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Input } from '../../components/ui/Form'
 import { Loading } from '../../components/ui/Loading'
-import { MatchFitDetail } from '../../components/matching/MatchFitDetail'
 import { InterviewScheduleModal } from '../../components/interview/InterviewScheduleModal'
+import { RecruiterCvModal } from '../../components/matching/RecruiterCvModal'
 import {
   RecruiterInterviewDetail,
   type RecruiterInterviewEntry,
@@ -41,6 +42,7 @@ import { useApp } from '../../context/AppContext'
 import { apiMyOpportunities, type ReceivedSuggestion, type RecruiterOpportunity } from '../../lib/api'
 import { checkHiringAction, nextRoundNumber, positionsFillLabel } from '../../lib/hiring'
 import { INTERVIEW_STATUS_LABELS, formatMadagascarDateTime, formatMadagascarShortDateTime } from '../../lib/interview'
+import { AVAILABILITY_LABELS, EXPERIENCE_LABELS } from '../../data/constants'
 import type { MatchSuggestionStatus } from '../../types'
 import './RecruiterApplications.css'
 
@@ -125,8 +127,16 @@ function plannableRound(s: ReceivedSuggestion): number | null {
     : null
 }
 
-function ordinal(rank: number): string {
-  return rank === 1 ? '1er' : `${rank}e`
+/** Résumé neutre du profil (liste blanche du serveur) : lieu, expérience,
+ *  disponibilité. Jamais le score de matching (décision 2026-11-18). */
+function profileSummary(profile: NonNullable<ReceivedSuggestion['candidate']['candidateProfile']>): string {
+  return [
+    [profile.city, profile.province].filter(Boolean).join(', '),
+    EXPERIENCE_LABELS[profile.experienceLevel],
+    AVAILABILITY_LABELS[profile.availability],
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 function plural(count: number, singular: string, pluralForm: string): string {
@@ -168,8 +178,8 @@ interface OfferGroup {
 }
 
 /** Regroupe par offre, de la plus récemment publiée (`createdAt`) à la plus
- *  ancienne, id de l'offre en départage ; dans une offre, meilleurs scores
- *  d'abord, id du dossier en départage. */
+ *  ancienne, id de l'offre en départage ; dans une offre, l'ordre du serveur
+ *  (meilleur score d'abord, score jamais transmis — décision 2026-11-18). */
 function groupByOffer(suggestions: ReceivedSuggestion[]): OfferGroup[] {
   const groups = new Map<string, OfferGroup>()
   for (const s of suggestions) {
@@ -200,7 +210,7 @@ function groupByOffer(suggestions: ReceivedSuggestion[]): OfferGroup[] {
         publishedTime(b.publishedAt) - publishedTime(a.publishedAt) ||
         a.id.localeCompare(b.id),
     )
-    .map((group) => ({ ...group, items: group.items.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)) }))
+    // `items` garde l'ordre du serveur (tri par score fait côté serveur).
 }
 
 const candidateLabel = (s: ReceivedSuggestion) => s.candidate.candidateProfile?.fullName ?? 'ce candidat'
@@ -221,7 +231,7 @@ function isNarrow(): boolean {
  *
  * Mise en page reprise de l'onglet admin « Recruteurs » : les offres ayant
  * au moins un dossier à gauche (la plus récente d'abord), les profils
- * proposés pour l'offre choisie à droite (meilleur score d'abord). L'offre
+ * proposés pour l'offre choisie à droite (ordre du serveur). L'offre
  * affichée est dans l'URL (`?offre=`) ; sans paramètre, c'est la plus
  * récente. Sur écran étroit : la liste OU le détail, avec un retour.
  *
@@ -245,6 +255,8 @@ export function RecruiterApplications() {
   const requestedStep = searchParams.get('etape')
 
   const [scheduling, setScheduling] = useState<ReceivedSuggestion | null>(null)
+  // « Voir le CV » (décision 2026-11-18) : fiche structurée, ouverte depuis la carte.
+  const [cvTarget, setCvTarget] = useState<ReceivedSuggestion | null>(null)
   const [detailTarget, setDetailTarget] = useState<{ id: string; entry: RecruiterInterviewEntry } | null>(null)
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
@@ -648,8 +660,8 @@ export function RecruiterApplications() {
                       <div className="rapp-head">
                         <div className="rapp-id">
                           <strong>{s.candidate.candidateProfile?.fullName ?? 'Candidat'}</strong>
-                          {s.preselectionRank != null && (
-                            <p className="rapp-rank">{ordinal(s.preselectionRank)} profil de la présélection OffRec</p>
+                          {s.candidate.candidateProfile && (
+                            <p className="rapp-profile-line">{profileSummary(s.candidate.candidateProfile)}</p>
                           )}
                         </div>
                         <div className="rapp-head-side">
@@ -658,16 +670,30 @@ export function RecruiterApplications() {
                           ) : (
                             <Badge variant={STATUS_DISPLAY[s.status]?.variant}>{STATUS_DISPLAY[s.status]?.label}</Badge>
                           )}
-                          <span className="rapp-score" title="Adéquation avec votre offre">
-                            {s.score}%
-                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-haspopup="dialog"
+                            aria-label={`Voir le CV de ${candidateLabel(s)}`}
+                            onClick={() => setCvTarget(s)}
+                          >
+                            <FileText size={14} aria-hidden />
+                            Voir le CV
+                          </Button>
                         </div>
                       </div>
 
-                      {s.fit ? (
-                        <MatchFitDetail fit={s.fit} />
-                      ) : (
-                        s.reasons.length > 0 && <p className="rapp-note">{s.reasons.slice(0, 2).join(' · ')}</p>
+                      {s.candidate.candidateProfile && s.candidate.candidateProfile.skills.length > 0 && (
+                        <ul className="rapp-skills" aria-label="Compétences du candidat">
+                          {s.candidate.candidateProfile.skills.slice(0, 8).map((skill) => (
+                            <li key={skill} className="rapp-skill">
+                              {skill}
+                            </li>
+                          ))}
+                          {s.candidate.candidateProfile.skills.length > 8 && (
+                            <li className="rapp-skill rapp-skill-more">+{s.candidate.candidateProfile.skills.length - 8}</li>
+                          )}
+                        </ul>
                       )}
 
                       {s.status === 'interet_recruteur' && (
@@ -778,6 +804,14 @@ export function RecruiterApplications() {
             onClose={() => setDetailTarget(null)}
             onChanged={handleDetailChanged}
             onRefresh={handleDetailRefresh}
+          />
+        )}
+
+        {cvTarget && (
+          <RecruiterCvModal
+            suggestionId={cvTarget.id}
+            candidateName={candidateLabel(cvTarget)}
+            onClose={() => setCvTarget(null)}
           />
         )}
 

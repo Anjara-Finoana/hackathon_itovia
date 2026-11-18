@@ -1465,6 +1465,13 @@ export const RECRUITER_FORBIDDEN_KEYS: readonly string[] = [
   'outcomeById',
   // Décision 2026-11-12 : « Déjà placé » est réservé aux admins.
   'alreadyPlaced',
+  // Décision 2026-11-18 : le score de matching (score, rang de présélection,
+  // adéquation critère par critère) est réservé aux admins. `reasons` n'y est
+  // pas : la confiance d'un talent (`trust.reasons`) en porte légitimement ;
+  // les raisons du score sont retirées par les listes blanches.
+  'score',
+  'preselectionRank',
+  'fit',
 ]
 
 /** Chemins (`a.b[0].c`) des clés interdites trouvées dans une valeur JSON. */

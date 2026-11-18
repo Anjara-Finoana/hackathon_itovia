@@ -1,0 +1,156 @@
+/* Fiche CV structurée transmise au recruteur (décision 2026-11-18). */
+.modal-card:has(.rcv) {
+  max-width: 640px;
+}
+
+.rcv {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.92rem;
+  color: var(--color-ink);
+}
+
+.rcv-privacy {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  color: var(--color-ink-muted);
+  font-size: 0.85rem;
+}
+
+.rcv-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.rcv-error p {
+  margin: 0;
+}
+
+.rcv-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rcv-name {
+  font-size: 1.1rem;
+}
+
+.rcv-offer,
+.rcv-muted {
+  color: var(--color-ink-muted);
+  font-size: 0.85rem;
+}
+
+.rcv-verified {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.rcv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.rcv-section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rcv-section p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.rcv-title {
+  font-weight: 600;
+}
+
+.rcv-facts {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0;
+}
+
+.rcv-facts dt {
+  color: var(--color-ink-muted);
+}
+
+.rcv-facts dd {
+  margin: 0;
+}
+
+.rcv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rcv-tags li {
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-subtle);
+  font-size: 0.82rem;
+}
+
+.rcv-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rcv-items li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rcv-source {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.rcv-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 520px) {
+  .rcv-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .rcv-facts dd {
+    margin-bottom: 0.35rem;
+  }
+}

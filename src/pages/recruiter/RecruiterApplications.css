@@ -365,11 +365,10 @@
   overflow-wrap: anywhere;
 }
 
-.rapp-rank {
+.rapp-profile-line {
   margin-top: 0.15rem;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-accent-hover);
+  color: var(--color-ink-secondary);
 }
 
 .rapp-head-side {
@@ -379,14 +378,27 @@
   gap: 0.4rem;
 }
 
-.rapp-score {
-  padding: 0.2rem 0.6rem;
+.rapp-skills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.35rem;
+}
+
+.rapp-skill {
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--radius-full);
-  background: var(--color-accent-muted);
-  color: var(--color-accent-hover);
-  font-size: 0.875rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-subtle);
+  color: var(--color-ink-secondary);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.rapp-skill-more {
+  color: var(--color-ink-muted);
 }
 
 .rapp-note {
