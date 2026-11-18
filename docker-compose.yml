@@ -57,6 +57,9 @@ services:
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
       HIRING_JOBS_ENABLED: ${HIRING_JOBS_ENABLED:-true}
       ALLOW_DEMO_VERIFICATION: ${ALLOW_DEMO_VERIFICATION:-false}
+      BOT_PROVIDER: ${BOT_PROVIDER:-custom_headless}
+      BOT_SERVICE_URL: ${BOT_SERVICE_URL:-http://bot-service:5001}
+      INTERNAL_BOT_SECRET: ${INTERNAL_BOT_SECRET:-finoana_bot_secret_local}
     volumes:
       - offrec_uploads_cv:/app/server/uploads/cv
       - offrec_uploads_preuves:/app/server/uploads/preuves
@@ -75,6 +78,35 @@ services:
       - "127.0.0.1:3080:80"
     depends_on:
       - api
+    networks:
+      - internal-net
+
+  bot-service:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: offrec-bot-service
+    restart: unless-stopped
+    init: true
+    shm_size: '512mb'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1280M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      - api
+    environment:
+      PORT: 5001
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:4000
+      INTERNAL_BOT_SECRET: ${INTERNAL_BOT_SECRET:-finoana_bot_secret_local}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      MAX_ACTIVE_BOTS: 1
+      BOT_TIMEOUT_MINUTES: 75
     networks:
       - internal-net
 
