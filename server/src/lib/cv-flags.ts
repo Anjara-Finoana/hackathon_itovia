@@ -84,10 +84,25 @@ export function checkCvName(
 ): string | null {
   if (!cvInfo.firstName && !cvInfo.lastName) return null
   const profileName = normalizeText(profileFullName)
+  const cvName = `${cvInfo.firstName ?? ''} ${cvInfo.lastName ?? ''}`.trim()
+  const cvNormalized = normalizeText(cvName)
+
+  // 1. Inclusion directe dans un sens ou dans l'autre (ex. "Wharton Aldrick" dans "Paulbert Nomendray Wharton Aldrick")
+  if (cvNormalized.includes(profileName) || profileName.includes(cvNormalized)) {
+    return null
+  }
+
+  // 2. Correspondance stricte prénom/nom
   const firstNameMatch = !cvInfo.firstName || profileName.includes(normalizeText(cvInfo.firstName))
   const lastNameMatch = !cvInfo.lastName || profileName.includes(normalizeText(cvInfo.lastName))
   if (firstNameMatch && lastNameMatch) return null
-  const cvName = `${cvInfo.firstName ?? ''} ${cvInfo.lastName ?? ''}`.trim()
+
+  // 3. Correspondance tolérante sur les jetons de nom (au moins un mot-clé de 3+ lettres en commun)
+  const profileTokens = profileName.split(/\s+/).filter((t) => t.length >= 3)
+  const cvTokens = cvNormalized.split(/\s+/).filter((t) => t.length >= 3)
+  const hasCommonToken = profileTokens.some((pt) => cvTokens.includes(pt))
+  if (hasCommonToken) return null
+
   return `Le nom dans le CV (${cvName}) ne correspond pas au nom du profil (${profileFullName}).`
 }
 
