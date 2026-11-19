@@ -97,6 +97,51 @@
   border-top: 1px solid var(--color-border, #f1f5f9);
 }
 
+.mbp-url-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mbp-url-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink, #475569);
+}
+
+.mbp-url-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mbp-url-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 6px;
+  background: var(--color-surface, #ffffff);
+  color: var(--color-ink, #1e293b);
+}
+
+.mbp-url-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #2563eb);
+}
+
+.mbp-url-link {
+  font-size: 0.8rem;
+  color: var(--color-accent, #2563eb);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mbp-url-link:hover {
+  text-decoration: underline;
+}
+
 .mbp-consent-label {
   display: flex;
   align-items: center;

@@ -137,9 +137,18 @@ router.post('/:id/bot/launch', requireAuth, async (req: Request, res: Response) 
       return
     }
 
-    if (!meeting.meetUrl) {
+    const targetMeetUrl = (req.body.meetUrl as string | undefined)?.trim() || meeting.meetUrl
+
+    if (!targetMeetUrl) {
       res.status(400).json({ error: 'Lien de visioconférence manquant' })
       return
+    }
+
+    if (targetMeetUrl !== meeting.meetUrl) {
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: { meetUrl: targetMeetUrl },
+      })
     }
 
     // Garde-fou légal : consentement recruteur requis
@@ -170,7 +179,7 @@ router.post('/:id/bot/launch', requireAuth, async (req: Request, res: Response) 
 
     const launchResult = await botProvider.launchBot({
       meetingId: meeting.id,
-      meetUrl: meeting.meetUrl,
+      meetUrl: targetMeetUrl,
       botName: botInstance.botName,
       webhookCallbackUrl: callbackUrl,
     })

@@ -59,6 +59,7 @@ interface MeetingBotPanelProps {
 
 export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: MeetingBotPanelProps) {
   const [meeting, setMeeting] = useState<MeetingData | null>(null)
+  const [customMeetUrl, setCustomMeetUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -81,9 +82,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
         const data = await res.json()
         if (isMounted && data.meeting) {
           setMeeting(data.meeting)
-          if (data.meeting.notes?.[0]) {
-            // Déjà une note existante
-          }
+          setCustomMeetUrl(data.meeting.meetUrl || meetUrl || '')
         }
       } catch (err) {
         if (isMounted) setError((err as Error).message)
@@ -165,6 +164,8 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
       setError('')
       const res = await fetch(`/api/meetings/${meeting.id}/bot/launch`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetUrl: customMeetUrl || meeting.meetUrl }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur lors du lancement du bot')
@@ -277,12 +278,37 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
           </span>
         </label>
 
+        {/* Champ Lien de réunion éditable */}
+        <div className="mbp-url-row">
+          <label className="mbp-url-label">Lien de la visioconférence (Google Meet, etc.) :</label>
+          <div className="mbp-url-input-wrap">
+            <input
+              type="url"
+              value={customMeetUrl}
+              onChange={(e) => setCustomMeetUrl(e.target.value)}
+              placeholder="https://meet.google.com/xxx-yyyy-zzz"
+              disabled={busy || isBotActive}
+              className="mbp-url-input"
+            />
+            {customMeetUrl && (
+              <a
+                href={customMeetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mbp-url-link"
+              >
+                Ouvrir l'appel ↗
+              </a>
+            )}
+          </div>
+        </div>
+
         <div className="mbp-buttons">
           {!isBotActive ? (
             <Button
               size="sm"
               variant="primary"
-              disabled={busy || !meeting?.recruiterConsent || !meetUrl}
+              disabled={busy || !meeting?.recruiterConsent || !customMeetUrl}
               onClick={handleLaunchBot}
             >
               <Play size={14} />
