@@ -349,7 +349,7 @@ export function RecommendTalent() {
 
           <Card className="rt-section">
             <h2 className="rt-section-title">
-              <span className="rt-step">4</span> Pour aller plus loin <span className="rt-optional">(facultatif)</span>
+              <span className="rt-step">4</span> Pour aller plus loin
             </h2>
             <div className="field">
               <span className="field-label">Une photo du travail</span>

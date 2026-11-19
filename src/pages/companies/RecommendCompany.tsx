@@ -356,7 +356,7 @@ export function RecommendCompany() {
 
           <Card className="rt-section">
             <h2 className="rt-section-title">
-              <span className="rt-step">3</span> Pour aller plus loin <span className="rt-optional">(facultatif)</span>
+              <span className="rt-step">3</span> Pour aller plus loin
             </h2>
             <div className="field">
               <span className="field-label">Un document qui prouve que vous y avez travaillé</span>
