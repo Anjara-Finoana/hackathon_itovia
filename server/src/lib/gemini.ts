@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { antigravityGenerateText } from './antigravity-client.js'
 
 const apiKey = process.env.GEMINI_API_KEY
 const modelName = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash'
+const aiProvider = process.env.AI_PROVIDER ?? (process.env.ANTIGRAVITY_API_KEY ? 'antigravity_api' : 'gemini')
 
 const client = apiKey ? new GoogleGenerativeAI(apiKey) : null
 
@@ -62,14 +64,8 @@ export interface SafeGenerateResult {
  * doit pouvoir continuer avec le résultat déterministe seul (score/reasons).
  */
 export async function safeGenerate(options: SafeGenerateOptions): Promise<SafeGenerateResult> {
-  // Les modèles Gemini récents « réfléchissent » avant de répondre (tokens de
-  // raisonnement facturés mais invisibles) : 8s était trop court, ~20s est
-  // un compromis raisonnable pour un assistant synchrone dans l'UI.
   const { system, userInput, retrievedData, maxOutputChars = 2000, maxInputChars = 30000, timeoutMs = 30000 } = options
 
-  if (!client) {
-    return { text: null, blocked: false, reason: 'IA non configurée (GEMINI_API_KEY manquante).' }
-  }
   if (!userInput || userInput.trim().length === 0) {
     return { text: null, blocked: true, reason: 'Entrée vide.' }
   }
@@ -90,21 +86,47 @@ export async function safeGenerate(options: SafeGenerateOptions): Promise<SafeGe
     .filter(Boolean)
     .join('\n\n')
 
-  const model = client.getGenerativeModel({ model: modelName })
+  // 1. Priorité au fournisseur Antigravity API si configuré
+  if (aiProvider === 'antigravity_api' && process.env.ANTIGRAVITY_API_KEY) {
+    try {
+      const generated = await antigravityGenerateText({
+        prompt,
+        model: process.env.ANTIGRAVITY_API_MODEL,
+        timeoutMs,
+      })
 
-  try {
-    const generation = model.generateContent(prompt)
-    const timeout = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Délai IA dépassé.')), timeoutMs)
-    })
-    const result = await Promise.race([generation, timeout])
-    const text = result.response.text()
-    if (!text || detectPromptInjection(text)) {
-      return { text: null, blocked: true, reason: 'Réponse IA jugée invalide.' }
+      if (generated) {
+        if (detectPromptInjection(generated)) {
+          return { text: null, blocked: true, reason: 'Réponse IA jugée invalide.' }
+        }
+        return { text: generated.slice(0, maxOutputChars), blocked: false }
+      }
+      console.warn('[SafeGenerate] Échec Antigravity API, tentative de repli vers Gemini standard...')
+    } catch (err) {
+      console.error('[SafeGenerate] Erreur Antigravity API:', err)
     }
-    return { text: text.slice(0, maxOutputChars), blocked: false }
-  } catch (err) {
-    console.error('Erreur Gemini', err)
-    return { text: null, blocked: false, reason: 'IA momentanément indisponible.' }
   }
+
+  // 2. Repli vers Google Generative AI standard si configuré
+  if (client) {
+    const model = client.getGenerativeModel({ model: modelName })
+    try {
+      const generation = model.generateContent(prompt)
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Délai IA dépassé.')), timeoutMs)
+      })
+      const result = await Promise.race([generation, timeout])
+      const text = result.response.text()
+      if (!text || detectPromptInjection(text)) {
+        return { text: null, blocked: true, reason: 'Réponse IA jugée invalide.' }
+      }
+      return { text: text.slice(0, maxOutputChars), blocked: false }
+    } catch (err) {
+      console.error('Erreur Gemini standard:', err)
+      return { text: null, blocked: false, reason: 'IA momentanément indisponible.' }
+    }
+  }
+
+  // 3. Aucun fournisseur configuré
+  return { text: null, blocked: false, reason: 'IA non configurée (clés d’API manquantes).' }
 }

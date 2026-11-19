@@ -1,10 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from '../prisma.js'
 import { detectPromptInjection } from '../gemini.js'
+import { antigravityGenerateText, extractJsonFromMarkdown } from '../antigravity-client.js'
 import type { InterviewResultReason } from '@prisma/client'
 
 const apiKey = process.env.GEMINI_API_KEY
 const modelName = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash'
+const aiProvider = process.env.AI_PROVIDER ?? (process.env.ANTIGRAVITY_API_KEY ? 'antigravity_api' : 'gemini')
 const client = apiKey ? new GoogleGenerativeAI(apiKey) : null
 
 interface GeminiSynthesisOutput {
@@ -73,19 +75,7 @@ export async function generateMeetingSynthesis(meetingId: string) {
   const opportunity = meeting.interview?.suggestion?.opportunity
   const candidateProfile = meeting.interview?.suggestion?.candidate?.candidateProfile
 
-  let synthesisData: GeminiSynthesisOutput
-
-  if (client) {
-    try {
-      const model = client.getGenerativeModel({
-        model: modelName,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      })
-
-      const prompt = `
+  const prompt = `
 Tu es l'assistant RH intelligent de la plateforme OffRec / Finoana à Madagascar.
 Analyse cet entretien d'embauche et produis un compte-rendu structuré d'évaluation professionnelle.
 
@@ -116,15 +106,49 @@ Instructions strictes de sortie JSON :
 11. actionItems: Tableau d'actions concrètes à mener (titre, description, assigneeRole ("recruteur"|"candidat"), priority ("urgente"|"haute"|"normale"|"basse")).
 `
 
+  let synthesisData: GeminiSynthesisOutput | null = null
+
+  // 1. Tenter l'appel via l'API Antigravity si configurée
+  if (aiProvider === 'antigravity_api' && process.env.ANTIGRAVITY_API_KEY) {
+    try {
+      const rawText = await antigravityGenerateText({
+        prompt: `${prompt}\nRéponds UNIQUEMENT avec le JSON demandé.`,
+        model: process.env.ANTIGRAVITY_API_MODEL || 'gemini-3.8-flash-low',
+        timeoutMs: 40000,
+      })
+
+      if (rawText) {
+        const jsonText = extractJsonFromMarkdown(rawText)
+        synthesisData = JSON.parse(jsonText) as GeminiSynthesisOutput
+      }
+    } catch (err) {
+      console.error('[MeetingSynthesis] Erreur appel Antigravity API:', err)
+      synthesisData = null
+    }
+  }
+
+  // 2. Repli vers le client Google Generative AI standard
+  if (!synthesisData && client) {
+    try {
+      const model = client.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
+      })
       const result = await model.generateContent(prompt)
       const text = result.response.text()
       synthesisData = JSON.parse(text)
     } catch (err) {
-      console.error('[MeetingSynthesis] Erreur appel Gemini API:', err)
-      synthesisData = generateFallbackSynthesis(dialogueText, opportunity?.title)
+      console.error('[MeetingSynthesis] Erreur appel Gemini standard:', err)
+      synthesisData = null
     }
-  } else {
-    console.warn('[MeetingSynthesis] Clé GEMINI_API_KEY absente, génération de la synthèse locale déterministe.')
+  }
+
+  // 3. Repli déterministe local si aucun LLM n'a répondu
+  if (!synthesisData) {
+    console.warn('[MeetingSynthesis] Génération de la synthèse de repli locale.')
     synthesisData = generateFallbackSynthesis(dialogueText, opportunity?.title)
   }
 

@@ -19,7 +19,7 @@ import { requireRole } from '../middleware/rbac.js'
 import { serializeOwnCandidateProfile, serializeUser } from '../lib/serialize.js'
 import { canVerifyCv } from '../lib/cv-access.js'
 import { checkCvName, computeCvFlags } from '../lib/cv-flags.js'
-import { extractCVDataWithAI, calculateYearsOfExperience } from '../lib/cv-extraction.js'
+import { extractCVDataWithAI, extractCVDataWithAntigravity, calculateYearsOfExperience } from '../lib/cv-extraction.js'
 import { COMMON_SKILLS } from '../../../src/data/constants.js'
 import { scheduleCandidateMatching } from '../lib/matching.js'
 import { clip, plural, scheduleAdminNotification, type NotifyAdminsInput } from '../lib/notify.js'
@@ -445,31 +445,38 @@ router.post('/profile/candidate/cv', requireRole('candidate'), handleCvUpload, a
       return
     }
 
-    // Extraire le texte du PDF
+    // 1. Extraire le texte brut du PDF (si couche texte vectorielle présente)
     let extractedText = ''
     try {
       const parsed = await pdfParse(req.file.buffer)
-      extractedText = parsed.text
+      extractedText = parsed.text || ''
     } catch {
       extractedText = ''
     }
 
-    if (!extractedText || extractedText.trim().length === 0) {
+    // 2. Extraction structurée par IA (Antigravity Vision multimodal en priorité, sinon Gemini texte)
+    let extractedData = null
+    const aiProvider = process.env.AI_PROVIDER ?? (process.env.ANTIGRAVITY_API_KEY ? 'antigravity_api' : 'gemini')
+
+    if (aiProvider === 'antigravity_api' && process.env.ANTIGRAVITY_API_KEY) {
+      extractedData = await extractCVDataWithAntigravity(req.file.buffer, req.file.originalname, req.file.mimetype)
+    }
+
+    if (!extractedData && extractedText && extractedText.trim().length >= 50) {
+      extractedData = await extractCVDataWithAI(extractedText)
+    }
+
+    // Si ni pdfParse n'a extrait de texte, ni l'IA n'a pu lire le fichier (ex. fichier corrompu)
+    if ((!extractedText || extractedText.trim().length === 0) && !extractedData) {
       res.status(400).json({ error: 'Impossible d\'extraire le texte du PDF. Vérifiez que le fichier est valide.' })
       return
     }
 
     // Extraire les compétences simples (méthode legacy pour rapidité)
+    const textForSkills = extractedText || (extractedData ? [extractedData.professionalSummary, ...(extractedData.skills || [])].join(' ') : '')
     const suggestedSkillsSimple = COMMON_SKILLS.filter((skill) =>
-      extractedText.toLowerCase().includes(skill.toLowerCase()),
+      textForSkills.toLowerCase().includes(skill.toLowerCase()),
     )
-
-    // Extraire les données structurées avec Gemini (peut renvoyer null : l'IA
-    // est additive, le dépôt reste possible sans elle).
-    const extractedData = await extractCVDataWithAI(extractedText)
-    if (!extractedData) {
-      console.warn('CV extraction with AI failed for user', userId)
-    }
 
     // Seule validation d'identité bloquante : le nom.
     if (extractedData) {

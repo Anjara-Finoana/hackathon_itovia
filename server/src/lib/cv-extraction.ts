@@ -1,4 +1,5 @@
 import { safeGenerate } from './gemini.js'
+import { antigravityGenerateWithFile, extractJsonFromMarkdown } from './antigravity-client.js'
 import type {
   ExtractedCVData,
   ExtractedCandidateInfo,
@@ -162,6 +163,120 @@ ${cleanedText}`
     return validated
   } catch (err) {
     console.error('CV extraction JSON parsing error:', err, 'Response:', result.text?.slice(0, 500))
+    return null
+  }
+}
+
+const CV_SCHEMA_PROMPT = `{
+  "candidateInfo": {
+    "firstName": string | null,
+    "lastName": string | null,
+    "email": string | null,
+    "phone": string | null,
+    "city": string | null,
+    "country": string | null,
+    "linkedin": string | null,
+    "github": string | null,
+    "portfolio": string | null
+  },
+  "professionalTitle": string | null,
+  "professionalSummary": string | null,
+  "experiences": [
+    {
+      "jobTitle": string,
+      "company": string,
+      "location": string | null,
+      "startDate": string | null,
+      "endDate": string | null,
+      "isCurrent": boolean,
+      "description": string,
+      "technologies": string[]
+    }
+  ],
+  "education": [
+    {
+      "degree": string,
+      "school": string,
+      "field": string | null,
+      "graduationDate": string | null,
+      "description": string | null
+    }
+  ],
+  "certifications": [
+    {
+      "name": string,
+      "issuer": string,
+      "issueDate": string | null,
+      "expiryDate": string | null,
+      "credentialUrl": string | null
+    }
+  ],
+  "projects": [
+    {
+      "name": string,
+      "description": string,
+      "role": string | null,
+      "startDate": string | null,
+      "endDate": string | null,
+      "technologies": string[],
+      "url": string | null
+    }
+  ],
+  "languages": [
+    {
+      "name": string,
+      "level": "A1" | "A2" | "B1" | "B2" | "C1" | "C2" | "Natif" | null
+    }
+  ],
+  "skills": string[],
+  "technologies": string[],
+  "yearsOfExperience": number | null,
+  "availability": string | null,
+  "desiredLocations": string[]
+}`
+
+/**
+ * Extrait les données structurées d'un CV en envoyant directement le fichier
+ * (PDF natif, scan, Canva, etc.) à l'API Antigravity multimodale.
+ */
+export async function extractCVDataWithAntigravity(
+  fileBuffer: Buffer,
+  filename?: string,
+  mimeType?: string,
+): Promise<ExtractedCVData | null> {
+  const prompt = `Tu es un expert RH en analyse de CV et extraction de données structurées.
+Analyse ce document de CV (texte et éléments visuels) et extrais TOUTES les informations de manière structurée en JSON.
+Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte explicatif avant ou après.
+
+Format JSON attendu :
+${CV_SCHEMA_PROMPT}
+
+Règles d'extraction :
+- Sois rigoureux et extrait TOUTES les compétences, outils et expériences identifiés.
+- Pour le prénom et le nom, extrait-les fidèlement depuis le titre ou l'en-tête du CV.
+- Ne fais pas d'hypothèses sur les informations manquantes : utilise null.
+- Dates au format YYYY-MM-DD ou null.`
+
+  try {
+    const rawResult = await antigravityGenerateWithFile({
+      prompt,
+      fileBuffer,
+      filename: filename || 'cv.pdf',
+      mimeType: mimeType || 'application/pdf',
+      model: process.env.ANTIGRAVITY_API_MODEL || 'gemini-3.8-flash-low',
+      timeoutMs: 60000,
+    })
+
+    if (!rawResult) {
+      console.warn('[CVExtraction] Antigravity API n\'a renvoyé aucun résultat')
+      return null
+    }
+
+    const jsonText = extractJsonFromMarkdown(rawResult)
+    const parsed = JSON.parse(jsonText)
+    return validateExtractedData(parsed, 'Document analysé par Antigravity Vision API')
+  } catch (err) {
+    console.error('[CVExtraction] Erreur analyse CV via Antigravity API:', err)
     return null
   }
 }

@@ -49,6 +49,10 @@ services:
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-OffRec <onboarding@resend.dev>}
       RESEND_NOTIFICATION_FROM_EMAIL: ${RESEND_NOTIFICATION_FROM_EMAIL:-OffRec <onboarding@resend.dev>}
       EMAIL_SENDING_DISABLED: ${EMAIL_SENDING_DISABLED:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-antigravity_api}
+      ANTIGRAVITY_API_URL: ${ANTIGRAVITY_API_URL:-https://ai-api.wharton-aldrick.com}
+      ANTIGRAVITY_API_KEY: ${ANTIGRAVITY_API_KEY:-}
+      ANTIGRAVITY_API_MODEL: ${ANTIGRAVITY_API_MODEL:-gemini-3.8-flash-low}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
