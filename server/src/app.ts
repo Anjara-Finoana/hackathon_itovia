@@ -31,6 +31,8 @@ import adminRecruiterRoutes from './routes/admin-recruiters.routes.js'
 import adminCandidateRoutes from './routes/admin-candidates.routes.js'
 import adminActivityRoutes from './routes/admin-activity.routes.js'
 import recruiterRoutes from './routes/recruiter.routes.js'
+import meetingsRoutes from './routes/meetings.routes.js'
+import webhooksRoutes from './routes/webhooks.routes.js'
 
 export function createApp() {
   const app = express()
@@ -83,6 +85,10 @@ export function createApp() {
   app.use('/api/admin/candidates', adminCandidateRoutes)
   // Journal d'activité de la plateforme (consultation admin).
   app.use('/api/admin/activity', adminActivityRoutes)
+
+  // Visioconférence, Assistant Scribe IA et Webhooks
+  app.use('/api/meetings', meetingsRoutes)
+  app.use('/api/webhooks', webhooksRoutes)
 
   app.use(notFound)
   app.use(errorHandler)

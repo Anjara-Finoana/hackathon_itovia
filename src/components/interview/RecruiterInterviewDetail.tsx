@@ -11,6 +11,7 @@ import { InterviewOutcomeModal } from './InterviewOutcomeModal'
 import { InterviewRounds } from './InterviewRounds'
 import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { InterviewSummary } from './InterviewSummary'
+import { MeetingBotPanel } from './MeetingBotPanel'
 import { useApp } from '../../context/AppContext'
 import {
   ApiError,
@@ -414,6 +415,13 @@ export function RecruiterInterviewDetail({
           )}
         </div>
       )}
+
+      {/* Assistant Visioconférence IA (Finoana Scribe / Approche A) */}
+      <MeetingBotPanel
+        interviewId={interview.id}
+        meetUrl={interview.meetUrl}
+        onApplyOutcome={() => open('outcome')}
+      />
 
       <InterviewSummary interview={interview} audience="recruiter" title="Récapitulatif">
         {canRecord && (

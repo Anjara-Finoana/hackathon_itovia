@@ -235,6 +235,10 @@ model User {
 
   /// Fiche entreprise liée à ce compte recruteur (par un admin uniquement).
   linkedCompany Company? @relation("CompanyRecruiter")
+
+  hostedMeetings        Meeting[]    @relation("MeetingHost")
+  participatingMeetings Meeting[]    @relation("MeetingParticipant")
+  assignedActionItems   ActionItem[] @relation("ActionItemAssignee")
 }
 
 model CandidateProfile {
@@ -627,6 +631,8 @@ model Interview {
   createdById        String
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
+
+  meeting            Meeting?
 
   /// Remplace l'ancien `suggestionId @unique` (migration
   /// 20261016100000_interview_rounds) ; sert aussi d'index par dossier.
@@ -1342,4 +1348,191 @@ model Company {
 
   @@unique([nameKey, city])
   @@index([nameKey])
+}
+
+// ============================================================================
+// Écosystème Meeting & Assistant Visioconférence (Finoana Scribe)
+// ============================================================================
+
+enum MeetingPlatform {
+  google_meet
+  zoom
+  teams
+  autre
+}
+
+enum MeetingStatus {
+  planifie
+  en_cours
+  termine
+  annule
+  echec
+}
+
+enum BotProvider {
+  recall_ai
+  meeting_baas
+  custom_headless
+}
+
+enum MeetingBotStatus {
+  initialise
+  connexion
+  salle_attente
+  en_appel
+  enregistrement
+  deconnexion
+  termine
+  erreur
+}
+
+enum SpeakerRole {
+  recruteur
+  candidat
+  observateur
+  inconnu
+}
+
+enum ActionItemPriority {
+  urgente
+  haute
+  normale
+  basse
+}
+
+enum ActionItemStatus {
+  a_faire
+  en_cours
+  termine
+  annule
+}
+
+enum NoteRecommendation {
+  retenu
+  second_entretien
+  non_retenu
+  absent
+}
+
+model Meeting {
+  id                 String            @id @default(uuid())
+  title              String
+  description        String?
+  meetUrl            String
+  platform           MeetingPlatform   @default(google_meet)
+  status             MeetingStatus     @default(planifie)
+  
+  scheduledAt        DateTime?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  recordingUrl       String?
+
+  /// Conformité légale : double consentement d'enregistrement recueilli (Loi 2014-038 Madagascar / RGPD)
+  recruiterConsent   Boolean           @default(false)
+  candidateConsent   Boolean           @default(false)
+  recruiterConsentAt DateTime?
+  candidateConsentAt DateTime?
+
+  /// Rattachement au tour d'entretien OffRec
+  interviewId        String?           @unique
+  interview          Interview?        @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+
+  /// Hôte de la réunion (recruteur ou admin)
+  hostId             String
+  host               User              @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+
+  /// Participant principal (candidat)
+  participantId      String?
+  participant        User?             @relation("MeetingParticipant", fields: [participantId], references: [id], onDelete: SetNull)
+
+  bots               MeetingBot[]
+  transcripts        Transcript[]
+  notes              Note[]
+  actionItems        ActionItem[]
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([hostId])
+  @@index([participantId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model MeetingBot {
+  id              String           @id @default(uuid())
+  meetingId       String
+  meeting         Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  provider        BotProvider      @default(custom_headless)
+  externalBotId   String?          @unique
+  botName         String           @default("Finoana Scribe")
+  status          MeetingBotStatus @default(initialise)
+  failureReason   String?
+  joinedAt        DateTime?
+  leftAt          DateTime?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([meetingId])
+  @@index([status])
+}
+
+model Transcript {
+  id          String      @id @default(uuid())
+  meetingId   String
+  meeting     Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speakerName String
+  speakerRole SpeakerRole @default(inconnu)
+  speakerId   String?
+  startTime   Float       /// secondes depuis le début de la session
+  endTime     Float       /// secondes
+  text        String
+  confidence  Float?
+  language    String      @default("fr")
+  isFinal     Boolean     @default(true)
+  chunkIndex  Int?
+  createdAt   DateTime    @default(now())
+
+  @@index([meetingId, startTime])
+  @@index([meetingId, chunkIndex])
+}
+
+model Note {
+  id                   String                 @id @default(uuid())
+  meetingId            String
+  meeting              Meeting                @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  summary              String                 /// Synthèse générale exécutive
+  keyTakeaways         String[]               /// Faits marquants
+  candidateStrengths   String[]               /// Points forts démontrés
+  candidateWeaknesses  String[]               /// Points de vigilance / lacunes
+  technicalAssessment  String?                /// Évaluation technique détaillée
+  softSkillsAssessment String?                /// Posture et communication
+  culturalFitScore     Int?                   /// 0 à 100
+  technicalFitScore    Int?                   /// 0 à 100
+  recommendation       NoteRecommendation?    /// retenu, second_entretien, non_retenu, absent
+  recommendedReason    InterviewResultReason? /// competences_techniques, points_forts, etc.
+  rawAiResponse        Json?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([meetingId])
+}
+
+model ActionItem {
+  id           String             @id @default(uuid())
+  meetingId    String
+  meeting      Meeting            @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  assigneeRole SpeakerRole        @default(recruteur)
+  assigneeId   String?
+  assignee     User?              @relation("ActionItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  dueDate      DateTime?
+  priority     ActionItemPriority @default(normale)
+  status       ActionItemStatus   @default(a_faire)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([meetingId, status])
 }
