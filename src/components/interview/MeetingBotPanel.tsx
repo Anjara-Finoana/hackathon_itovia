@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot, Play, Square, CheckSquare, Sparkles, AlertCircle, Radio, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react'
+import { Bot, Play, Square, CheckSquare, Sparkles, AlertCircle, Radio, ShieldCheck, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { Button } from '../ui/Button'
 import './MeetingBotPanel.css'
 
@@ -256,10 +256,10 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
         )}
       </div>
 
-      {error && (
+      {(error || (activeBot?.status === 'erreur' && activeBot?.failureReason)) && (
         <div className="mbp-alert">
           <AlertCircle size={16} />
-          <span>{error}</span>
+          <span>{error || activeBot?.failureReason}</span>
         </div>
       )}
 
@@ -302,6 +302,15 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
             )}
           </div>
         </div>
+
+        {!isBotActive && (
+          <div className="mbp-hint">
+            <Info size={16} className="mbp-hint-icon" />
+            <span>
+              <strong>Conseil Google Meet :</strong> Rejoignez d'abord la visioconférence (via le lien ci-dessus) avant de lancer l'assistant, afin que Google Meet autorise sa demande d'admission.
+            </span>
+          </div>
+        )}
 
         <div className="mbp-buttons">
           {!isBotActive ? (

@@ -89,6 +89,24 @@
   margin-bottom: 12px;
 }
 
+.mbp-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.mbp-hint-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .mbp-controls {
   display: flex;
   flex-direction: column;
