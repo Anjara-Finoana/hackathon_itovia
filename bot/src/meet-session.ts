@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { AudioPipeline, type TranscriptEvent } from './audio-pipeline.js'
 
@@ -136,6 +138,8 @@ export class MeetSession {
         await this.page.waitForTimeout(500)
       }
 
+      await this.saveScreenshot('01-pre-join')
+
       // 5. Clic sur le bouton de participation
       const joinButtonSelectors = [
         'button:has-text("Demander à participer")',
@@ -159,6 +163,11 @@ export class MeetSession {
         }
       }
 
+      await this.page.waitForTimeout(2000)
+      await this.saveScreenshot('02-after-click')
+      const postClickText = await this.page.innerText('body').catch(() => '')
+      console.log(`[MeetSession:${this.id}] Post-clic DOM text:\n`, postClickText.slice(0, 300))
+
       if (!joined) {
         const latestText = await this.page.innerText('body').catch(() => '')
         if (
@@ -177,8 +186,24 @@ export class MeetSession {
       this.monitorCallAdmission()
     } catch (err) {
       console.warn(`[MeetSession:${this.id}] Erreur interaction Google Meet:`, (err as Error).message)
+      await this.saveScreenshot('04-error')
       this.updateStatus('erreur', (err as Error).message)
       await this.stop()
+    }
+  }
+
+  private async saveScreenshot(name: string): Promise<void> {
+    if (!this.page) return
+    try {
+      const debugDir = path.resolve(process.cwd(), 'debug')
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true })
+      }
+      const filePath = path.join(debugDir, `${this.id}_${name}.png`)
+      await this.page.screenshot({ path: filePath, fullPage: true }).catch(() => {})
+      console.log(`[MeetSession:${this.id}] Capture d'écran enregistrée : ${filePath}`)
+    } catch (err) {
+      console.warn(`[MeetSession:${this.id}] Impossible d'enregistrer capture:`, err)
     }
   }
 
@@ -191,6 +216,9 @@ export class MeetSession {
       }
 
       checkCount++
+      if (checkCount === 1 || checkCount % 6 === 0) {
+        await this.saveScreenshot(`03-waiting-${checkCount}`)
+      }
       try {
         // En appel si le bouton raccrocher ou l'icône de fin d'appel est visible
         const leaveBtn = await this.page.$(
@@ -212,6 +240,7 @@ export class MeetSession {
           bodyText.includes('denied')
         ) {
           clearInterval(interval)
+          await this.saveScreenshot('04-refused')
           this.updateStatus('erreur', 'L’hôte a refusé la demande d’admission du bot.')
           await this.stop()
           return
