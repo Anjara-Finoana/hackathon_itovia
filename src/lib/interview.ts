@@ -22,8 +22,30 @@ const MADAGASCAR_OFFSET_MS = 3 * 60 * 60 * 1000
 /** Durées proposées au recruteur, en minutes. */
 export const INTERVIEW_DURATIONS: readonly InterviewDuration[] = [30, 45, 60]
 
-/** Délai minimal entre la saisie et l'entretien. */
-export const INTERVIEW_MIN_LEAD_HOURS = 2
+/**
+ * Délai minimal entre la saisie et l'entretien en minutes.
+ * Configurable via variable d'environnement :
+ * - Côté serveur : `INTERVIEW_MIN_LEAD_MINUTES`
+ * - Côté client : `VITE_INTERVIEW_MIN_LEAD_MINUTES`
+ * Par défaut : 0 minute (autorise tout entretien dans le futur).
+ */
+export function getInterviewMinLeadMinutes(): number {
+  const proc = typeof globalThis !== 'undefined' ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process : undefined
+  if (proc?.env?.INTERVIEW_MIN_LEAD_MINUTES !== undefined) {
+    const parsed = Number(proc.env.INTERVIEW_MIN_LEAD_MINUTES)
+    if (!Number.isNaN(parsed)) return Math.max(0, parsed)
+  }
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_INTERVIEW_MIN_LEAD_MINUTES !== undefined) {
+    // @ts-ignore
+    const parsed = Number(import.meta.env.VITE_INTERVIEW_MIN_LEAD_MINUTES)
+    if (!Number.isNaN(parsed)) return Math.max(0, parsed)
+  }
+  return 0
+}
+
+/** Délai minimal conservé pour rétro-compatibilité (en heures). */
+export const INTERVIEW_MIN_LEAD_HOURS = 0
 /** Horizon maximal de planification. */
 export const INTERVIEW_MAX_AHEAD_DAYS = 60
 
@@ -145,17 +167,25 @@ export function contactDetailsError(text: string | null | undefined): string | n
 }
 
 /**
- * Contrôle de la fenêtre de planification : au moins 2 h après `now`, au
- * plus 60 jours. Message français, ou `null` si la date convient. Le
- * serveur fait foi ; le client l'utilise pour prévenir la saisie.
+ * Contrôle de la fenêtre de planification : au moins le délai minimal
+ * configuré (`getInterviewMinLeadMinutes()`) après `now`, au plus 60 jours.
+ * Message français, ou `null` si la date convient. Le serveur fait foi ;
+ * le client l'utilise pour prévenir la saisie.
  */
 export function interviewWindowError(scheduledAt: Date, now: Date): string | null {
   if (Number.isNaN(scheduledAt.getTime())) return 'Date d’entretien invalide.'
-  const lead = scheduledAt.getTime() - now.getTime()
-  if (lead < INTERVIEW_MIN_LEAD_HOURS * 60 * 60 * 1000) {
-    return `L’entretien doit avoir lieu au moins ${INTERVIEW_MIN_LEAD_HOURS} h après maintenant.`
+  const leadMs = scheduledAt.getTime() - now.getTime()
+  const minMinutes = getInterviewMinLeadMinutes()
+  const minLeadMs = minMinutes * 60 * 1000
+
+  if (leadMs < minLeadMs) {
+    if (minMinutes === 0) {
+      return 'L’entretien doit être fixé dans le futur.'
+    }
+    const label = minMinutes >= 60 && minMinutes % 60 === 0 ? `${minMinutes / 60} h` : `${minMinutes} min`
+    return `L’entretien doit avoir lieu au moins ${label} après maintenant.`
   }
-  if (lead > INTERVIEW_MAX_AHEAD_DAYS * 24 * 60 * 60 * 1000) {
+  if (leadMs > INTERVIEW_MAX_AHEAD_DAYS * 24 * 60 * 60 * 1000) {
     return `L’entretien ne peut pas être fixé à plus de ${INTERVIEW_MAX_AHEAD_DAYS} jours.`
   }
   return null
