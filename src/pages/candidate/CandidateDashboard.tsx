@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import {
   ArrowRight,
+  BadgeCheck,
   Building2,
   CalendarDays,
   CheckCircle2,
   CircleAlert,
   Clock,
   FileSignature,
+  Handshake,
   MapPin,
   Send,
 } from 'lucide-react'
@@ -45,6 +47,7 @@ import { formatDate } from '../../lib/format'
 import { formatCivilDate } from '../../lib/hiring'
 import { formatMadagascarDateTime, formatMadagascarShortDateTime } from '../../lib/interview'
 import type { CandidateProfile } from '../../types'
+import '../../components/dashboard/Dashboard.css'
 import './CandidateDashboard.css'
 
 const PROFILE_PATH = '/candidat/profil'
@@ -412,38 +415,68 @@ export function CandidateDashboard() {
           </Card>
         </FadeUp>
 
-        <div className="dash-stats dash-stats-grid">
+        <div className="dash-stats dash-stats-grid odash">
           <FadeUp eager index={1}>
-            <Card className="stat-card">
-              <strong>{transmitted}</strong>
-              <span>
-                {transmitted > 1 ? 'Offres pour lesquelles' : 'Offre pour laquelle'} votre profil a été
-                transmis à une entreprise
-              </span>
+            <Card className="odash-kpi odash-tone-accent dash-stat">
+              <div className="odash-kpi-head">
+                <span className="odash-pastille" aria-hidden="true">
+                  <Send size={18} strokeWidth={2} />
+                </span>
+                <span className="odash-kpi-label">
+                  {transmitted > 1 ? 'Offres pour lesquelles' : 'Offre pour laquelle'} votre profil a été
+                  transmis à une entreprise
+                </span>
+              </div>
+              <strong className="odash-kpi-value">{transmitted}</strong>
             </Card>
           </FadeUp>
           <FadeUp eager index={2}>
-            <Card className="stat-card">
-              <strong>{interested}</strong>
-              <span>{interested > 1 ? 'Entreprises intéressées' : 'Entreprise intéressée'}, en attente de mise en relation</span>
+            <Card className="odash-kpi odash-tone-violet dash-stat">
+              <div className="odash-kpi-head">
+                <span className="odash-pastille" aria-hidden="true">
+                  <Building2 size={18} strokeWidth={2} />
+                </span>
+                <span className="odash-kpi-label">{interested > 1 ? 'Entreprises intéressées' : 'Entreprise intéressée'}</span>
+              </div>
+              <div className="dash-stat-valuerow">
+                <strong className="odash-kpi-value">{interested}</strong>
+                <p className="odash-kpi-sub">En attente de mise en relation</p>
+              </div>
             </Card>
           </FadeUp>
           <FadeUp eager index={3}>
-            <Card className="stat-card">
-              <strong>{connected}</strong>
-              <span>{connected > 1 ? 'Mises en relation confirmées' : 'Mise en relation confirmée'}</span>
+            <Card className="odash-kpi odash-tone-accent dash-stat">
+              <div className="odash-kpi-head">
+                <span className="odash-pastille" aria-hidden="true">
+                  <Handshake size={18} strokeWidth={2} />
+                </span>
+                <span className="odash-kpi-label">{connected > 1 ? 'Mises en relation confirmées' : 'Mise en relation confirmée'}</span>
+              </div>
+              <strong className="odash-kpi-value">{connected}</strong>
             </Card>
           </FadeUp>
           <FadeUp eager index={4}>
-            <Card className={`stat-card${pendingProposals.length > 0 ? ' dash-stat-warning' : ''}`}>
-              <strong>{pendingProposals.length}</strong>
-              <span>{pendingProposals.length > 1 ? 'Propositions à traiter' : 'Proposition à traiter'}</span>
+            <Card
+              className={`odash-kpi dash-stat ${pendingProposals.length > 0 ? 'odash-tone-warning dash-stat-warning' : 'odash-tone-neutral'}`}
+            >
+              <div className="odash-kpi-head">
+                <span className="odash-pastille" aria-hidden="true">
+                  <FileSignature size={18} strokeWidth={2} />
+                </span>
+                <span className="odash-kpi-label">{pendingProposals.length > 1 ? 'Propositions à traiter' : 'Proposition à traiter'}</span>
+              </div>
+              <strong className="odash-kpi-value">{pendingProposals.length}</strong>
             </Card>
           </FadeUp>
           <FadeUp eager index={5}>
-            <Card className="stat-card">
-              <strong>{hires}</strong>
-              <span>{hires > 1 ? 'Embauches confirmées' : 'Embauche confirmée'}</span>
+            <Card className="odash-kpi odash-tone-success dash-stat">
+              <div className="odash-kpi-head">
+                <span className="odash-pastille" aria-hidden="true">
+                  <BadgeCheck size={18} strokeWidth={2} />
+                </span>
+                <span className="odash-kpi-label">{hires > 1 ? 'Embauches confirmées' : 'Embauche confirmée'}</span>
+              </div>
+              <strong className="odash-kpi-value">{hires}</strong>
             </Card>
           </FadeUp>
         </div>

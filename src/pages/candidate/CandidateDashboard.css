@@ -284,6 +284,54 @@
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  /* Toutes les lignes ont la même hauteur (celle de la carte la plus haute),
+     même quand les 5 cartes se répartissent sur plusieurs lignes. */
+  grid-auto-rows: 1fr;
+}
+
+/* Chaque carte est enveloppée dans un <FadeUp> (div) : le wrapper s'étire
+   sur la cellule, la carte doit remplir le wrapper. */
+.dash-stats-grid > * {
+  display: flex;
+  min-width: 0;
+}
+
+.dash-stats-grid > * > .dash-stat {
+  flex: 1;
+}
+
+/* Cartes au gabarit des indicateurs admin (`odash-kpi`, Dashboard.css) :
+   titre + pastille en haut, chiffre en bas de carte pour qu'il s'aligne
+   d'une carte à l'autre malgré des titres de longueurs différentes. */
+.dash-stat .odash-kpi-value {
+  margin-top: auto;
+}
+
+.dash-stat .odash-kpi-sub {
+  margin-top: 0;
+}
+
+/* Chiffre + précision sur une même ligne (carte « Entreprise intéressée ») :
+   c'est la ligne entière qui est poussée en bas de carte, le chiffre reste
+   aligné avec ceux des autres cartes. Si la précision ne tient pas à côté du
+   chiffre (carte étroite), elle passe en dessous. */
+.dash-stat-valuerow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin-top: auto;
+  min-width: 0;
+}
+
+.dash-stat-valuerow .odash-kpi-value {
+  margin-top: 0;
+}
+
+.dash-stat-valuerow .odash-kpi-sub {
+  flex: 1 1 7rem;
+  min-width: 0;
+  margin: 0;
 }
 
 .dash-stat-warning {
