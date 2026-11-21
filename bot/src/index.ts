@@ -110,41 +110,7 @@ app.post('/bot/join', requireInternalSecret, async (req: Request, res: Response)
   })
 })
 
-// Déconnecter un bot
-app.post('/bot/:botId/leave', requireInternalSecret, async (req: Request, res: Response) => {
-  const { botId } = req.params
-  const session = activeSessions.get(botId)
-
-  if (!session) {
-    res.status(404).json({ error: 'Aucune session active pour cet identifiant' })
-    return
-  }
-
-  console.log(`[BotService] Demande d évacuation pour session ${botId}`)
-  await session.stop()
-  activeSessions.delete(botId)
-
-  res.json({ success: true, message: 'Bot déconnecté et ressources libérées' })
-})
-
-// Statut d'une session
-app.get('/bot/:botId/status', requireInternalSecret, (req: Request, res: Response) => {
-  const { botId } = req.params
-  const session = activeSessions.get(botId)
-
-  if (!session) {
-    res.json({ botId, status: 'termine', active: false })
-    return
-  }
-
-  res.json({
-    botId: session.id,
-    status: session.status,
-    active: true,
-  })
-})
-
-// --- Gestion de la session Google persistée du bot ---
+// --- Gestion de la session Google persistée du bot (doit être avant /bot/:botId/*) ---
 const authDir = path.resolve(process.cwd(), 'auth')
 const authFile = path.join(authDir, 'google-session.json')
 
@@ -236,6 +202,40 @@ app.post('/bot/session/clear', requireInternalSecret, (_req: Request, res: Respo
   } catch (err) {
     res.status(500).json({ error: (err as Error).message })
   }
+})
+
+// Déconnecter un bot
+app.post('/bot/:botId/leave', requireInternalSecret, async (req: Request, res: Response) => {
+  const { botId } = req.params
+  const session = activeSessions.get(botId)
+
+  if (!session) {
+    res.status(404).json({ error: 'Aucune session active pour cet identifiant' })
+    return
+  }
+
+  console.log(`[BotService] Demande d évacuation pour session ${botId}`)
+  await session.stop()
+  activeSessions.delete(botId)
+
+  res.json({ success: true, message: 'Bot déconnecté et ressources libérées' })
+})
+
+// Statut d'une session
+app.get('/bot/:botId/status', requireInternalSecret, (req: Request, res: Response) => {
+  const { botId } = req.params
+  const session = activeSessions.get(botId)
+
+  if (!session) {
+    res.json({ botId, status: 'termine', active: false })
+    return
+  }
+
+  res.json({
+    botId: session.id,
+    status: session.status,
+    active: true,
+  })
 })
 
 app.listen(PORT, () => {
