@@ -33,6 +33,7 @@ import adminActivityRoutes from './routes/admin-activity.routes.js'
 import recruiterRoutes from './routes/recruiter.routes.js'
 import meetingsRoutes from './routes/meetings.routes.js'
 import webhooksRoutes from './routes/webhooks.routes.js'
+import adminBotRoutes from './routes/admin-bot.routes.js'
 
 export function createApp() {
   const app = express()
@@ -89,6 +90,7 @@ export function createApp() {
   // Visioconférence, Assistant Scribe IA et Webhooks
   app.use('/api/meetings', meetingsRoutes)
   app.use('/api/webhooks', webhooksRoutes)
+  app.use('/api/admin/bot', adminBotRoutes)
 
   app.use(notFound)
   app.use(errorHandler)

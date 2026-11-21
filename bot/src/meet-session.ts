@@ -57,10 +57,22 @@ export class MeetSession {
         ignoreDefaultArgs: ['--mute-audio'],
       })
 
+      const authDir = path.resolve(process.cwd(), 'auth')
+      const authFile = path.join(authDir, 'google-session.json')
+      const hasAuth = fs.existsSync(authFile)
+
+      if (hasAuth) {
+        console.log(`[MeetSession:${this.id}] Chargement session Google authentifiée depuis ${authFile}`)
+      } else {
+        console.log(`[MeetSession:${this.id}] Aucune session Google détectée (${authFile}). Connexion anonyme.`)
+      }
+
       this.context = await this.browser.newContext({
+        ...(hasAuth ? { storageState: authFile } : {}),
         permissions: ['microphone', 'camera'],
         userAgent:
-          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        locale: 'fr-FR',
       })
 
       // Masquage anti-automatisation
@@ -142,14 +154,21 @@ export class MeetSession {
 
       // 5. Clic sur le bouton de participation
       const joinButtonSelectors = [
+        'button:has-text("Participer à la réunion")',
+        'button:has-text("Participer maintenant")',
+        'button:has-text("Participer")',
         'button:has-text("Demander à participer")',
         'button:has-text("Ask to join")',
-        'button:has-text("Participer")',
         'button:has-text("Join now")',
+        'button:has-text("Join meeting")',
+        'button:has-text("Join")',
         'button[jsname="Qx7uuf"]',
+        'div[role="button"]:has-text("Participer à la réunion")',
+        'div[role="button"]:has-text("Participer maintenant")',
         'div[role="button"]:has-text("Demander à participer")',
         'div[role="button"]:has-text("Ask to join")',
         'div[role="button"]:has-text("Participer")',
+        'div[role="button"]:has-text("Join now")',
       ]
 
       let joined = false
@@ -179,7 +198,18 @@ export class MeetSession {
         throw new Error('Bouton pour demander à participer à Google Meet introuvable.')
       }
 
-      // 6. Mise à jour du statut en salle d'attente UNIQUEMENT après clic confirmé
+      // Vérifier si le bot est entré directement (compte invité ou appel ouvert)
+      const inCallImmediate = await this.page.$(
+        'button[aria-label*="quitter" i], button[aria-label*="leave" i], button[data-call-ended="false"], div[role="button"][aria-label*="quitter" i]',
+      )
+      if (inCallImmediate) {
+        console.log(`[MeetSession:${this.id}] Bot entré directement dans la réunion (compte Google invité/admis).`)
+        this.updateStatus('en_appel', 'Connecté à la réunion')
+        this.startRecording()
+        return
+      }
+
+      // 6. Mise à jour du statut en salle d'attente si pas encore admis
       this.updateStatus('salle_attente', 'En attente d admission par l hôte...')
 
       // 7. Détection de l'admission dans la réunion

@@ -33,6 +33,7 @@ import { AdminNotifications } from './pages/admin/AdminNotifications'
 import { AdminActivity } from './pages/admin/AdminActivity'
 import { AdminMatching } from './pages/admin/AdminMatching'
 import { AdminInterviews } from './pages/admin/AdminInterviews'
+import { AdminAgentBot } from './pages/admin/AdminAgentBot'
 import { Messages } from './pages/messages/Messages'
 import { RecruiterBilling } from './pages/recruiter/RecruiterBilling'
 import { RecruiterShortlist } from './pages/recruiter/RecruiterShortlist'
@@ -328,6 +329,22 @@ export default function App() {
               element={
                 <ProtectedRoute role="admin">
                   <AdminInterviews />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/agent-ia"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminAgentBot />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/agent"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminAgentBot />
                 </ProtectedRoute>
               }
             />

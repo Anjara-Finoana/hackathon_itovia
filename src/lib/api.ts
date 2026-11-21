@@ -2835,3 +2835,44 @@ export function apiAdminActivity(params: AdminActivityQuery = {}) {
   const qs = q.toString()
   return request<AdminActivityPage>(`/admin/activity${qs ? `?${qs}` : ''}`)
 }
+
+/* ------------------------------------------------------------------ */
+/* Administration Agent Visioconférence (Finoana Scribe & Google Meet) */
+/* ------------------------------------------------------------------ */
+
+export interface AdminBotStatus {
+  bot: {
+    configured: boolean
+    accountHint?: string
+    updatedAt?: string
+    sizeBytes?: number
+    cookiesCount?: number
+    authFile?: string
+    error?: string
+    activeBotsCount: number
+    activeSessions: Array<{ id: string; status: string }>
+  }
+  calendar: {
+    configured: boolean
+    organizerAccount: string
+    botAttendeeEmail: string
+  }
+}
+
+export function apiAdminBotStatus(): Promise<AdminBotStatus> {
+  return request<AdminBotStatus>('/admin/bot/status')
+}
+
+export function apiAdminBotUpdateSession(storageState: unknown): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/admin/bot/session', {
+    method: 'POST',
+    body: JSON.stringify({ storageState }),
+  })
+}
+
+export function apiAdminBotDisconnect(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/admin/bot/disconnect', {
+    method: 'POST',
+  })
+}
+

@@ -256,13 +256,15 @@ function conferenceRequest() {
   return { createRequest: { requestId: randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } }
 }
 
-/** Corps commun : AUCUN champ `attendees`, invités incapables d'en ajouter d'autres. */
+/** Corps commun : Finoana Scribe en invité pour contourner le blocage Google Meet, invité incapable d'en inviter d'autres */
 function eventBody(input: CalendarEventInput) {
+  const botEmail = process.env.GOOGLE_BOT_EMAIL?.trim() || 'nomade.wanderer.2002@gmail.com'
   return {
     summary: input.summary,
     description: input.description,
     ...eventTiming(input),
-    visibility: 'private',
+    visibility: 'default',
+    attendees: botEmail ? [{ email: botEmail, displayName: 'Finoana Scribe' }] : [],
     guestsCanInviteOthers: false,
     guestsCanSeeOtherGuests: false,
     reminders: { useDefault: true },

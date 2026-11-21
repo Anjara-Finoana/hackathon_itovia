@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
+  Bot,
   Briefcase,
   BriefcaseBusiness,
   Building2,
@@ -196,6 +197,7 @@ export function getLinksByRole(
       // Suivi de tous les entretiens, à côté des dossiers ; hors barre
       // d'onglets mobile (`menuOnly`) : ses 4 onglets ne bougent pas.
       { to: '/admin/entretiens', label: 'Entretiens', icon: CalendarDays, menuOnly: true },
+      { to: '/admin/agent-ia', label: 'Agent Visioconférence', icon: Bot, menuOnly: true },
       // 3e position : avec « Vérification des CV » insérée en 4e (l'admin
       // peut toujours vérifier), les notifications restent dans la barre
       // d'onglets mobile, pastille de non lus visible sans ouvrir « Menu ».

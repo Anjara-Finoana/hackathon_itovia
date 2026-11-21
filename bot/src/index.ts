@@ -1,6 +1,8 @@
 import express, { type Request, type Response } from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import fs from 'node:fs'
+import path from 'node:path'
 import { MeetSession } from './meet-session.js'
 
 dotenv.config()
@@ -140,6 +142,100 @@ app.get('/bot/:botId/status', requireInternalSecret, (req: Request, res: Respons
     status: session.status,
     active: true,
   })
+})
+
+// --- Gestion de la session Google persistée du bot ---
+const authDir = path.resolve(process.cwd(), 'auth')
+const authFile = path.join(authDir, 'google-session.json')
+
+app.get('/bot/session/status', requireInternalSecret, (_req: Request, res: Response) => {
+  const exists = fs.existsSync(authFile)
+  if (!exists) {
+    res.json({ configured: false, authFile })
+    return
+  }
+
+  try {
+    const stats = fs.statSync(authFile)
+    const content = fs.readFileSync(authFile, 'utf-8')
+    let cookiesCount = 0
+    let accountHint: string | null = null
+
+    try {
+      const parsed = JSON.parse(content)
+      if (Array.isArray(parsed.cookies)) {
+        cookiesCount = parsed.cookies.length
+        for (const cookie of parsed.cookies) {
+          if (typeof cookie.value === 'string' && cookie.value.includes('@gmail.com')) {
+            const match = cookie.value.match(/[\w.-]+@gmail\.com/)
+            if (match) accountHint = match[0]
+          }
+        }
+      }
+    } catch {
+      // Erreur de parsing JSON bénigne
+    }
+
+    res.json({
+      configured: true,
+      authFile,
+      updatedAt: stats.mtime.toISOString(),
+      sizeBytes: stats.size,
+      cookiesCount,
+      accountHint: accountHint || process.env.GOOGLE_BOT_EMAIL || 'nomade.wanderer.2002@gmail.com',
+    })
+  } catch (err) {
+    res.status(500).json({ configured: false, error: (err as Error).message })
+  }
+})
+
+app.post('/bot/session/update', requireInternalSecret, (req: Request, res: Response) => {
+  try {
+    const { storageState } = req.body
+    if (!storageState) {
+      res.status(400).json({ error: 'Champ storageState requis' })
+      return
+    }
+
+    let dataToWrite: string
+    if (typeof storageState === 'string') {
+      JSON.parse(storageState)
+      dataToWrite = storageState
+    } else if (typeof storageState === 'object') {
+      dataToWrite = JSON.stringify(storageState, null, 2)
+    } else {
+      res.status(400).json({ error: 'storageState doit être un objet JSON ou une chaîne JSON' })
+      return
+    }
+
+    if (!fs.existsSync(authDir)) {
+      fs.mkdirSync(authDir, { recursive: true })
+    }
+
+    fs.writeFileSync(authFile, dataToWrite, 'utf-8')
+    console.log(`[BotService] Session Google mise à jour dans ${authFile}`)
+
+    res.json({
+      success: true,
+      message: 'Session Google mise à jour avec succès',
+      updatedAt: new Date().toISOString(),
+    })
+  } catch (err) {
+    console.error('[BotService] Erreur mise à jour session Google:', err)
+    res.status(500).json({ error: (err as Error).message })
+  }
+})
+
+app.post('/bot/session/clear', requireInternalSecret, (_req: Request, res: Response) => {
+  try {
+    if (fs.existsSync(authFile)) {
+      fs.unlinkSync(authFile)
+      console.log(`[BotService] Session Google supprimée (${authFile})`)
+    }
+    res.json({ success: true, message: 'Session Google supprimée avec succès' })
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message })
+  }
 })
 
 app.listen(PORT, () => {

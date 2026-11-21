@@ -44,8 +44,8 @@ RUN npx playwright install chromium
 COPY bot/ ./
 RUN npm run build
 
-# Utilisateur système non-root
-RUN useradd -m -s /bin/bash botuser && chown -R botuser:botuser /app/bot /ms-playwright
+# Utilisateur système non-root et répertoires de persistance
+RUN mkdir -p /app/bot/auth /app/bot/debug && useradd -m -s /bin/bash botuser && chown -R botuser:botuser /app/bot /ms-playwright
 USER botuser
 
 EXPOSE 5001

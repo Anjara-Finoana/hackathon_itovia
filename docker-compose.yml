@@ -113,6 +113,8 @@ services:
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
       MAX_ACTIVE_BOTS: 1
       BOT_TIMEOUT_MINUTES: 75
+    volumes:
+      - offrec_bot_auth:/app/bot/auth
     networks:
       - internal-net
 
@@ -120,6 +122,7 @@ volumes:
   offrec_db_data:
   offrec_uploads_cv:
   offrec_uploads_preuves:
+  offrec_bot_auth:
 
 networks:
   internal-net:

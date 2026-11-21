@@ -66,4 +66,87 @@ export class CustomBotProvider implements IMeetingBotProvider {
       return { status: 'erreur_connexion', active: false }
     }
   }
+
+  public async getSessionStatus(): Promise<{
+    configured: boolean
+    authFile?: string
+    updatedAt?: string
+    sizeBytes?: number
+    cookiesCount?: number
+    accountHint?: string
+    error?: string
+  }> {
+    try {
+      const res = await fetch(`${this.botServiceUrl}/bot/session/status`, {
+        headers: {
+          'X-Bot-Secret': this.internalSecret,
+        },
+      })
+      if (!res.ok) {
+        return { configured: false, error: `Service bot inaccessible (HTTP ${res.status})` }
+      }
+      return (await res.json()) as {
+        configured: boolean
+        authFile?: string
+        updatedAt?: string
+        sizeBytes?: number
+        cookiesCount?: number
+        accountHint?: string
+      }
+    } catch (err) {
+      return { configured: false, error: (err as Error).message }
+    }
+  }
+
+  public async updateSession(storageState: unknown): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch(`${this.botServiceUrl}/bot/session/update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Secret': this.internalSecret,
+        },
+        body: JSON.stringify({ storageState }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string; error?: string }
+      if (!res.ok) {
+        return { success: false, error: data.error || `Erreur bot-service HTTP ${res.status}` }
+      }
+      return { success: true, message: data.message || 'Session mise à jour' }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  }
+
+  public async clearSession(): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const res = await fetch(`${this.botServiceUrl}/bot/session/clear`, {
+        method: 'POST',
+        headers: {
+          'X-Bot-Secret': this.internalSecret,
+        },
+      })
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string; error?: string }
+      if (!res.ok) {
+        return { success: false, error: data.error || `Erreur bot-service HTTP ${res.status}` }
+      }
+      return { success: true, message: data.message || 'Session supprimée' }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  }
+
+  public async getActiveSessions(): Promise<{ count: number; sessions: Array<{ id: string; status: string }> }> {
+    try {
+      const res = await fetch(`${this.botServiceUrl}/bot/sessions`, {
+        headers: {
+          'X-Bot-Secret': this.internalSecret,
+        },
+      })
+      if (!res.ok) return { count: 0, sessions: [] }
+      return (await res.json()) as { count: number; sessions: Array<{ id: string; status: string }> }
+    } catch {
+      return { count: 0, sessions: [] }
+    }
+  }
 }
