@@ -152,6 +152,14 @@ export class MeetSession {
 
       await this.saveScreenshot('01-pre-join')
 
+      // 4b. Vérifier si le bot est déjà directement dans l'appel (ex. /new ou entrée auto)
+      if (await this.isAlreadyInCall()) {
+        console.log(`[MeetSession:${this.id}] Bot déjà dans l'appel Google Meet dès l'ouverture.`)
+        this.updateStatus('en_appel', 'Connecté à la réunion')
+        this.startRecording()
+        return
+      }
+
       // 5. Clic sur le bouton de participation
       const joinButtonSelectors = [
         'button:has-text("Participer à la réunion")',
@@ -199,10 +207,7 @@ export class MeetSession {
       }
 
       // Vérifier si le bot est entré directement (compte invité ou appel ouvert)
-      const inCallImmediate = await this.page.$(
-        'button[aria-label*="quitter" i], button[aria-label*="leave" i], button[data-call-ended="false"], div[role="button"][aria-label*="quitter" i]',
-      )
-      if (inCallImmediate) {
+      if (await this.isAlreadyInCall()) {
         console.log(`[MeetSession:${this.id}] Bot entré directement dans la réunion (compte Google invité/admis).`)
         this.updateStatus('en_appel', 'Connecté à la réunion')
         this.startRecording()
@@ -220,6 +225,26 @@ export class MeetSession {
       this.updateStatus('erreur', (err as Error).message)
       await this.stop()
     }
+  }
+
+  private async isAlreadyInCall(): Promise<boolean> {
+    if (!this.page) return false
+    const inCallSelector = [
+      'button[aria-label*="quitter" i]',
+      'button[aria-label*="leave" i]',
+      'button[data-call-ended="false"]',
+      'div[role="button"][aria-label*="quitter" i]',
+      'div[role="button"][aria-label*="leave" i]',
+    ].join(', ')
+    const btn = await this.page.$(inCallSelector)
+    if (btn) return true
+    const body = await this.page.innerText('body').catch(() => '')
+    return (
+      body.includes('Meeting details') ||
+      body.includes('Détails de la réunion') ||
+      body.includes('Send a reaction') ||
+      body.includes('Envoyer une réaction')
+    )
   }
 
   private async saveScreenshot(name: string): Promise<void> {
@@ -250,12 +275,10 @@ export class MeetSession {
         await this.saveScreenshot(`03-waiting-${checkCount}`)
       }
       try {
-        // En appel si le bouton raccrocher ou l'icône de fin d'appel est visible
-        const leaveBtn = await this.page.$(
-          'button[aria-label*="quitter" i], button[aria-label*="leave" i], button[data-call-ended="false"], div[role="button"][aria-label*="quitter" i]',
-        )
+        // En appel si le bouton raccrocher ou l'interface d'appel est visible
+        const inCall = await this.isAlreadyInCall()
 
-        if (leaveBtn && this.status !== 'en_appel' && this.status !== 'enregistrement') {
+        if (inCall && this.status !== 'en_appel' && this.status !== 'enregistrement') {
           clearInterval(interval)
           this.updateStatus('en_appel', 'Admis dans la réunion')
           this.startRecording()
