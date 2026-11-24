@@ -229,8 +229,8 @@ export function CandidateProfile() {
   }
 
   return (
-    <div className="page">
-      <div className="container" style={{ maxWidth: 640 }}>
+    <div className="page cp-page">
+      <div className="container cp-container">
         <header className="page-header">
           <h1>Mon profil candidat</h1>
           <p>
@@ -239,7 +239,7 @@ export function CandidateProfile() {
           </p>
         </header>
 
-        <Card className="profile-block">
+        <Card className="profile-block cp-card">
           <h2 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Mon CV</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--color-ink-muted)', marginBottom: '0.75rem' }}>
             Déposez votre CV (PDF) : nous en extrayons quelques compétences à titre de suggestion,
@@ -408,7 +408,7 @@ export function CandidateProfile() {
           )}
         </Card>
 
-        <Card className="consent-card">
+        <Card className="consent-card cp-card">
           <div className="consent-head">
             <h2>Proposition de mon profil aux entreprises</h2>
             <span className={`consent-tag ${consentAt ? 'is-on' : 'is-off'}`}>
@@ -484,156 +484,180 @@ export function CandidateProfile() {
         {/* Afficher les données extraites du CV si disponibles */}
         <CVExtractedData profile={profile} />
 
-        <Card>
-          <form onSubmit={handleSubmit}>
-            <Field label="Nom complet">
-              <Input
-                required
-                value={profile.fullName}
-                onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-              />
-            </Field>
-            <Field label="Email">
-              <Input
-                type="email"
-                required
-                value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              />
-            </Field>
-            <Field label="Téléphone">
-              <Input
-                required
-                value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-              />
-            </Field>
-            <Field label="Genre">
-              <Select
-                value={profile.gender}
-                onChange={(e) => setProfile({ ...profile, gender: e.target.value as Gender })}
-              >
-                {(Object.keys(GENDER_LABELS) as Gender[]).map((k) => (
-                  <option key={k} value={k}>
-                    {GENDER_LABELS[k]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Province">
-              <Select
-                value={profile.province}
-                onChange={(e) =>
-                  setProfile({ ...profile, province: e.target.value, city: e.target.value })
-                }
-              >
-                {PROVINCES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Ville">
-              <Input
-                value={profile.city}
-                onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-              />
-            </Field>
-            <Field label="Niveau d’études">
-              <Select
-                value={profile.educationLevel}
-                onChange={(e) =>
-                  setProfile({
-                    ...profile,
-                    educationLevel: e.target.value as EducationLevel,
-                  })
-                }
-              >
-                {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
-                  <option key={k} value={k}>
-                    {EDUCATION_LABELS[k]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Niveau d’expérience">
-              <Select
-                value={profile.experienceLevel}
-                onChange={(e) =>
-                  setProfile({
-                    ...profile,
-                    experienceLevel: e.target.value as ExperienceLevel,
-                  })
-                }
-              >
-                {(Object.keys(EXPERIENCE_LABELS) as ExperienceLevel[]).map((k) => (
-                  <option key={k} value={k}>
-                    {EXPERIENCE_LABELS[k]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Compétences">
-              <p className="profile-help">
-                Le matching se base sur les compétences de votre profil : celles détectées dans
-                votre CV ne comptent que si vous les ajoutez ici et enregistrez.
-              </p>
-              <div className="skill-chips">
-                {skillOptions.map((skill) => (
-                  <button
-                    key={skill}
-                    type="button"
-                    className={`chip ${profile.skills.includes(skill) ? 'active' : ''}`}
-                    onClick={() => toggleSkill(skill)}
-                  >
-                    {skill}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <Field label="Types d’opportunités recherchées">
-              <div className="skill-chips">
-                {(Object.keys(OPPORTUNITY_TYPE_LABELS) as OpportunityType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`chip ${profile.desiredOpportunityTypes.includes(t) ? 'active' : ''}`}
-                    onClick={() => toggleType(t)}
-                  >
-                    {OPPORTUNITY_TYPE_LABELS[t]}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <Field label="Disponibilité">
-              <Select
-                value={profile.availability}
-                onChange={(e) =>
-                  setProfile({
-                    ...profile,
-                    availability: e.target.value as Availability,
-                  })
-                }
-              >
-                {(Object.keys(AVAILABILITY_LABELS) as Availability[]).map((k) => (
-                  <option key={k} value={k}>
-                    {AVAILABILITY_LABELS[k]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {skillsUnsaved && !saved && (
-              <p className="profile-unsaved" role="status">
-                Compétences modifiées : enregistrez le profil pour qu’elles soient prises en compte
-                dans le matching.
-              </p>
-            )}
-            {saved && <p className="save-ok">Profil enregistré avec succès.</p>}
-            {error && <p style={{ color: 'var(--color-danger, #c0392b)' }}>{error}</p>}
-            <Button type="submit" fullWidth>
-              Enregistrer le profil
-            </Button>
+        <Card className="cp-card">
+          <form onSubmit={handleSubmit} className="cp-form">
+            <div className="cp-field cp-field--full">
+              <Field label="Nom complet">
+                <Input
+                  required
+                  value={profile.fullName}
+                  onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="cp-field cp-field--full">
+              <Field label="Email">
+                <Input
+                  type="email"
+                  required
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Téléphone">
+                <Input
+                  required
+                  value={profile.phone}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Genre">
+                <Select
+                  value={profile.gender}
+                  onChange={(e) => setProfile({ ...profile, gender: e.target.value as Gender })}
+                >
+                  {(Object.keys(GENDER_LABELS) as Gender[]).map((k) => (
+                    <option key={k} value={k}>
+                      {GENDER_LABELS[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Province">
+                <Select
+                  value={profile.province}
+                  onChange={(e) =>
+                    setProfile({ ...profile, province: e.target.value, city: e.target.value })
+                  }
+                >
+                  {PROVINCES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Ville">
+                <Input
+                  value={profile.city}
+                  onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Niveau d’études">
+                <Select
+                  value={profile.educationLevel}
+                  onChange={(e) =>
+                    setProfile({
+                      ...profile,
+                      educationLevel: e.target.value as EducationLevel,
+                    })
+                  }
+                >
+                  {(Object.keys(EDUCATION_LABELS) as EducationLevel[]).map((k) => (
+                    <option key={k} value={k}>
+                      {EDUCATION_LABELS[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Niveau d’expérience">
+                <Select
+                  value={profile.experienceLevel}
+                  onChange={(e) =>
+                    setProfile({
+                      ...profile,
+                      experienceLevel: e.target.value as ExperienceLevel,
+                    })
+                  }
+                >
+                  {(Object.keys(EXPERIENCE_LABELS) as ExperienceLevel[]).map((k) => (
+                    <option key={k} value={k}>
+                      {EXPERIENCE_LABELS[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="cp-field cp-field--full">
+              <Field label="Compétences">
+                <p className="profile-help">
+                  Le matching se base sur les compétences de votre profil : celles détectées dans
+                  votre CV ne comptent que si vous les ajoutez ici et enregistrez.
+                </p>
+                <div className="skill-chips">
+                  {skillOptions.map((skill) => (
+                    <button
+                      key={skill}
+                      type="button"
+                      className={`chip ${profile.skills.includes(skill) ? 'active' : ''}`}
+                      onClick={() => toggleSkill(skill)}
+                    >
+                      {skill}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
+            <div className="cp-field cp-field--full">
+              <Field label="Types d’opportunités recherchées">
+                <div className="skill-chips">
+                  {(Object.keys(OPPORTUNITY_TYPE_LABELS) as OpportunityType[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`chip ${profile.desiredOpportunityTypes.includes(t) ? 'active' : ''}`}
+                      onClick={() => toggleType(t)}
+                    >
+                      {OPPORTUNITY_TYPE_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
+            <div className="cp-field">
+              <Field label="Disponibilité">
+                <Select
+                  value={profile.availability}
+                  onChange={(e) =>
+                    setProfile({
+                      ...profile,
+                      availability: e.target.value as Availability,
+                    })
+                  }
+                >
+                  {(Object.keys(AVAILABILITY_LABELS) as Availability[]).map((k) => (
+                    <option key={k} value={k}>
+                      {AVAILABILITY_LABELS[k]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="cp-field--full cp-form-footer">
+              {skillsUnsaved && !saved && (
+                <p className="profile-unsaved" role="status">
+                  Compétences modifiées : enregistrez le profil pour qu’elles soient prises en compte
+                  dans le matching.
+                </p>
+              )}
+              {saved && <p className="save-ok">Profil enregistré avec succès.</p>}
+              {error && <p style={{ color: 'var(--color-danger, #c0392b)' }}>{error}</p>}
+              <Button type="submit" fullWidth>
+                Enregistrer le profil
+              </Button>
+            </div>
           </form>
         </Card>
       </div>

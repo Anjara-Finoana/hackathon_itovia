@@ -63,7 +63,7 @@ export function DirectoryTabs() {
   }, [])
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container dtabs-page">
         <header className="dtabs-head">
           <p className="eyebrow">Confiance communautaire</p>

@@ -19,6 +19,7 @@ import { apiMyOpportunities } from '../../lib/api'
 import { OPPORTUNITY_POSITIONS_MAX, OPPORTUNITY_POSITIONS_MIN, positionsUpdateError } from '../../lib/hiring'
 import { checkMissions, normalizeRequiredSkills } from '../../lib/opportunityFields'
 import type { ExperienceLevel, Opportunity, OpportunityType, Sector } from '../../types'
+import './RecruiterOpportunityForm.css'
 
 type SectorDetails = Record<string, string | boolean>
 
@@ -143,7 +144,7 @@ export function RecruiterOpportunityForm() {
   }
 
   return (
-    <div className="page">
+    <div className="page rof-page">
       <div className="container" style={{ maxWidth: 640 }}>
         <header className="page-header">
           <h1>{isEdit ? 'Modifier l’offre' : 'Publier une offre'}</h1>

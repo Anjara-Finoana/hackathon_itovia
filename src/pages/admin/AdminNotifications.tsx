@@ -108,7 +108,7 @@ export function AdminNotifications() {
   const filtered = activeFilter !== 'all' || unreadOnly
 
   return (
-    <div className="page">
+    <div className="page anotif-page">
       <div className="container">
         <header className="page-header">
           <p className="eyebrow">Administration</p>

@@ -114,6 +114,17 @@
   padding: 0;
 }
 
+/* Annuaire (`.page.dir-page` : onglets, fiches pro / talent / entreprise,
+   formulaires de recommandation) : même centrage que « Publier une offre »
+   (`.rof-page`) — colonne bornée à 1100px, centrée. Limité à la coquille
+   connectée : hors connexion (Header/Footer), `.page` + `.container`
+   centrent déjà la page, rendu inchangé. */
+.shell-main .page.dir-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
 /* ------------------------------------------------------------ carte latérale */
 
 .shell-side {

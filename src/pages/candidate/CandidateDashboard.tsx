@@ -181,7 +181,7 @@ export function CandidateDashboard() {
 
   if (!profile) {
     return (
-      <div className="page">
+      <div className="page cdash-page">
         <div className="container">
           <EmptyState
             icon={Send}
@@ -328,7 +328,7 @@ export function CandidateDashboard() {
   }
 
   return (
-    <div className="page">
+    <div className="page cdash-page">
       <div className="container">
         <FadeUp eager>
           <header className="page-header">

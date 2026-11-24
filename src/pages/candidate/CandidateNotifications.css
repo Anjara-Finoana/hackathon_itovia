@@ -1,0 +1,11 @@
+/* « Notifications » (candidat) : même centrage que « Publier une offre »
+   (`.rof-page`) — colonne bornée à 1100px, centrée dans la zone principale.
+   Sélecteur renforcé pour passer devant `.shell-main .page { padding: 0 }`
+   (AppShell.css). Les cartes viennent de
+   `components/notifications/NotificationList.css`. */
+.shell-main .page.cnotif-page,
+.page.cnotif-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}

@@ -52,7 +52,7 @@ export function ProviderDetail() {
 
   if (!hydrated) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <Loading />
         </div>
@@ -62,7 +62,7 @@ export function ProviderDetail() {
 
   if (!provider || !trust) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <p>Prestataire introuvable.</p>
           <Link to="/annuaire">Retour à l’annuaire</Link>
@@ -74,7 +74,7 @@ export function ProviderDetail() {
   const guard = canRecommendProvider(provider.id)
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container dir-detail">
         <Link to="/annuaire" className="dir-back">
           <ArrowLeft size={16} aria-hidden />

@@ -1,6 +1,7 @@
 import { matchPath } from 'react-router-dom'
 import { NotificationList } from '../../components/notifications/NotificationList'
 import { useApp } from '../../context/AppContext'
+import './RecruiterNotifications.css'
 
 /**
  * Écrans vers lesquels une notification du recruteur peut mener — à garder
@@ -42,7 +43,7 @@ export function RecruiterNotifications() {
   const { notifications, markNotificationRead, markAllNotificationsRead } = useApp()
 
   return (
-    <div className="page">
+    <div className="page rnotif-page">
       <div className="container">
         <header className="page-header">
           <h1>Notifications</h1>

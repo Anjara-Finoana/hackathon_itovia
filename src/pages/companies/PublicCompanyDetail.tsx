@@ -53,7 +53,7 @@ export function PublicCompanyDetail() {
 
   if (state === 'loading') {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <Loading />
         </div>
@@ -63,7 +63,7 @@ export function PublicCompanyDetail() {
 
   if (state !== 'ok' || !company) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container ptl-page">
           <Link to="/annuaire/entreprises" className="ptl-back">
             <ArrowLeft size={16} aria-hidden /> Toutes les entreprises recommandées
@@ -92,7 +92,7 @@ export function PublicCompanyDetail() {
   const maxHighlight = Math.max(1, ...company.highlights.map((h) => h.count))
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container ptl-page ptl-detail">
         <Link to="/annuaire/entreprises" className="ptl-back">
           <ArrowLeft size={16} aria-hidden /> Toutes les entreprises recommandées

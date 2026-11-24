@@ -1,11 +1,12 @@
 import { NotificationList } from '../../components/notifications/NotificationList'
 import { useApp } from '../../context/AppContext'
+import './CandidateNotifications.css'
 
 export function CandidateNotifications() {
   const { notifications, markNotificationRead } = useApp()
 
   return (
-    <div className="page">
+    <div className="page cnotif-page">
       <div className="container" style={{ maxWidth: 560 }}>
         <header className="page-header">
           <h1>Notifications</h1>

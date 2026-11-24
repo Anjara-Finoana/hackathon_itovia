@@ -1,6 +1,16 @@
 /* Page Notifications de l'espace admin. Les cartes elles-mêmes viennent de
    `components/notifications/NotificationList.css`. */
 
+/* Même centrage que « Publier une offre » (`.rof-page`) : colonne bornée à
+   1100px, centrée. Sélecteur renforcé pour passer devant
+   `.shell-main .page { padding: 0 }` (AppShell.css). */
+.shell-main .page.anotif-page,
+.page.anotif-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
 .anotif-bar {
   display: flex;
   flex-wrap: wrap;

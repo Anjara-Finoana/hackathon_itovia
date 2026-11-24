@@ -64,7 +64,7 @@ export function AddProviderForm() {
   }
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container dir-detail dir-form-page">
         <Link to="/annuaire" className="dir-back">
           <ArrowLeft size={16} aria-hidden />

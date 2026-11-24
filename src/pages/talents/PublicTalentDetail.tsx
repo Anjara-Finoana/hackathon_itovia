@@ -81,7 +81,7 @@ export function PublicTalentDetail() {
 
   if (state === 'loading') {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <Loading />
         </div>
@@ -91,7 +91,7 @@ export function PublicTalentDetail() {
 
   if (state !== 'ok' || !talent) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container ptl-page">
           <Link to="/annuaire/talents" className="ptl-back">
             <ArrowLeft size={16} aria-hidden /> Tous les talents recommandés
@@ -119,7 +119,7 @@ export function PublicTalentDetail() {
   const canRequest = currentUser ? CONTACT_REQUESTER_ROLES.includes(currentUser.role) : false
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container ptl-page ptl-detail">
         <Link to="/annuaire/talents" className="ptl-back">
           <ArrowLeft size={16} aria-hidden /> Tous les talents recommandés

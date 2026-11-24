@@ -152,7 +152,7 @@ export function RecommendTalent() {
 
   if (done) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container rt-page">
           <Card className="rt-done">
             <CheckCircle2 size={36} strokeWidth={1.75} className="rt-done-icon" aria-hidden />
@@ -171,7 +171,7 @@ export function RecommendTalent() {
   }
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container rt-page">
         <Link to="/annuaire/talents" className="rt-back">
           <ArrowLeft size={16} aria-hidden /> Annuaire · Talents recommandés

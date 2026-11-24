@@ -131,7 +131,7 @@ export function CandidateInterviews() {
   const filtered = period !== 'a_venir' || status !== ''
 
   return (
-    <div className="page">
+    <div className="page cint-page">
       <div className="container">
         <header className="page-header">
           <p className="eyebrow">Espace candidat</p>

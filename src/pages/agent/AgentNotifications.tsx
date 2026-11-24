@@ -1,5 +1,6 @@
 import { NotificationList } from '../../components/notifications/NotificationList'
 import { useApp } from '../../context/AppContext'
+import './AgentNotifications.css'
 
 /** Notifications de l'agent : talents recommandés à prendre en charge,
  *  nouvelles recommandations sur ses signaux et ses talents. */
@@ -7,7 +8,7 @@ export function AgentNotifications() {
   const { notifications, markNotificationRead } = useApp()
 
   return (
-    <div className="page">
+    <div className="page agnotif-page">
       <div className="container" style={{ maxWidth: 560 }}>
         <header className="page-header">
           <h1>Notifications</h1>

@@ -168,7 +168,7 @@ export function RecommendCompany() {
 
   if (done) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container rt-page">
           <Card className="rt-done">
             <CheckCircle2 size={36} strokeWidth={1.75} className="rt-done-icon" aria-hidden />
@@ -187,7 +187,7 @@ export function RecommendCompany() {
   }
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container rt-page">
         <Link to="/annuaire/entreprises" className="rt-back">
           <ArrowLeft size={16} aria-hidden /> Annuaire · Entreprises recommandées

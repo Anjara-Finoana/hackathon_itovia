@@ -2,6 +2,17 @@
    communes (filtres, groupes, lignes) sont dans
    components/interview/InterviewList.css (préfixe `ivl-`). Préfixe `cint-`. */
 
+/* Centrage : même règle que « Publier une offre » (`.rof-page`) et
+   l'annuaire (`.dir-page`) — colonne bornée à 1100px, centrée. Sélecteur
+   renforcé pour passer devant `.shell-main .page { padding: 0 }`
+   (AppShell.css). La grille `card-grid ivl-card-list` reste inchangée. */
+.shell-main .page.cint-page,
+.page.cint-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
 .cint-groups[aria-busy='true'] {
   opacity: 0.6;
   transition: opacity 0.15s ease;

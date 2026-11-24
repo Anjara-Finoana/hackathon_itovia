@@ -1,4 +1,15 @@
 /* Tableau de bord candidat : préparation du profil + suivi des dossiers. */
+
+/* Même centrage que « Publier une offre », le profil, les notifications,
+   l'annuaire et « Entretiens » : colonne bornée à 1100px, centrée. Sélecteur
+   renforcé parce que la coquille connectée (`.shell-main .page`, AppShell.css)
+   remet le padding de `.page` à 0. */
+.shell-main .page.cdash-page,
+.page.cdash-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
 .dash-block-head {
   display: flex;
   align-items: center;

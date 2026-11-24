@@ -41,7 +41,7 @@ export function RecommendationForm() {
 
   if (!hydrated) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <Loading />
         </div>
@@ -51,7 +51,7 @@ export function RecommendationForm() {
 
   if (!provider) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container">
           <p>Prestataire introuvable.</p>
           <Link to="/annuaire">Retour à l’annuaire</Link>
@@ -62,7 +62,7 @@ export function RecommendationForm() {
 
   if (!guard.ok) {
     return (
-      <div className="page">
+      <div className="page dir-page">
         <div className="container dir-detail">
           <Card>
             <p className="dir-guard">{guard.error}</p>
@@ -123,7 +123,7 @@ export function RecommendationForm() {
   }
 
   return (
-    <div className="page">
+    <div className="page dir-page">
       <div className="container dir-detail dir-form-page">
         <Link to={`/annuaire/${provider.id}`} className="dir-back">
           <ArrowLeft size={16} aria-hidden />
