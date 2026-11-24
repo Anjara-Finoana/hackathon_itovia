@@ -173,13 +173,19 @@ Instructions strictes de sortie JSON :
   // Création des actions associées
   if (Array.isArray(synthesisData.actionItems)) {
     for (const item of synthesisData.actionItems) {
+      const title =
+        (typeof item.title === 'string' && item.title.trim()) ||
+        (typeof item.description === 'string' && item.description.trim().slice(0, 80)) ||
+        'Action à suivre'
+      const assigneeRole = item.assigneeRole === 'candidat' ? 'candidat' : 'recruteur'
+      const priority = item.priority === 'haute' || item.priority === 'basse' ? item.priority : 'normale'
       await prisma.actionItem.create({
         data: {
           meetingId,
-          title: item.title,
-          description: item.description,
-          assigneeRole: item.assigneeRole,
-          priority: item.priority || 'normale',
+          title,
+          description: item.description || undefined,
+          assigneeRole,
+          priority,
           status: 'a_faire',
         },
       })
