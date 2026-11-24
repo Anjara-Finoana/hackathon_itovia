@@ -2854,7 +2854,12 @@ export interface AdminBotStatus {
   }
   calendar: {
     configured: boolean
+    source?: 'database' | 'env' | 'none'
     organizerAccount: string
+    calendarId?: string
+    updatedAt?: string
+    hasOAuthClient?: boolean
+    clientId?: string | null
     botAttendeeEmail: string
   }
 }
@@ -2872,6 +2877,25 @@ export function apiAdminBotUpdateSession(storageState: unknown): Promise<{ succe
 
 export function apiAdminBotDisconnect(): Promise<{ success: boolean; message: string }> {
   return request<{ success: boolean; message: string }>('/admin/bot/disconnect', {
+    method: 'POST',
+  })
+}
+
+export function apiAdminCalendarAuthUrl(): Promise<{ url: string; redirectUri: string }> {
+  return request<{ url: string; redirectUri: string }>('/admin/bot/calendar/auth-url')
+}
+
+export function apiAdminCalendarSaveToken(
+  tokenOrPayload: string,
+): Promise<{ success: boolean; email: string | null; message: string }> {
+  return request<{ success: boolean; email: string | null; message: string }>('/admin/bot/calendar/token', {
+    method: 'POST',
+    body: JSON.stringify({ tokenOrPayload }),
+  })
+}
+
+export function apiAdminCalendarDisconnect(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/admin/bot/calendar/disconnect', {
     method: 'POST',
   })
 }

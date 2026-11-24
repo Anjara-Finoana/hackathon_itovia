@@ -3,12 +3,14 @@ import { createApp } from './app.js'
 import { purgeExpiredSignals } from './lib/talent-signals.js'
 import { repairHiringData } from './lib/hiring-store.js'
 import { startHiringJobs } from './lib/hiring-jobs.js'
+import { initGoogleCalendarOverride } from './lib/google-calendar.js'
 
 const port = Number(process.env.PORT ?? 4000)
 const app = createApp()
 
 app.listen(port, () => {
   console.log(`OffRec API en écoute sur http://localhost:${port}`)
+  void initGoogleCalendarOverride()
   // Purge du contact des signaux de talents expirés (60 jours sans suite),
   // sans bloquer le démarrage ; la file des agents la relance au besoin.
   purgeExpiredSignals()

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   Bot,
@@ -6,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  ExternalLink,
   FileCode,
   RefreshCw,
   Terminal,
@@ -19,11 +21,15 @@ import {
   apiAdminBotDisconnect,
   apiAdminBotStatus,
   apiAdminBotUpdateSession,
+  apiAdminCalendarAuthUrl,
+  apiAdminCalendarDisconnect,
+  apiAdminCalendarSaveToken,
   type AdminBotStatus,
 } from '../../lib/api'
 import './AdminAgentBot.css'
 
 export function AdminAgentBot() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState<AdminBotStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,12 +42,26 @@ export function AdminAgentBot() {
   const [submitting, setSubmitting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
 
+  const [calOsTab, setCalOsTab] = useState<'unix' | 'windows'>('unix')
+  const [copiedCalCmd, setCopiedCalCmd] = useState(false)
+  const [calTokenText, setCalTokenText] = useState('')
+  const [calConnecting, setCalConnecting] = useState(false)
+  const [calSubmitting, setCalSubmitting] = useState(false)
+  const [showCalFallback, setShowCalFallback] = useState(false)
+
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://offrec.ffn-tech.com'
   const scriptUrl = `${origin}/bot-login.mjs`
   const terminalCommand =
     osTab === 'unix'
       ? `curl -sSL ${scriptUrl} -o /tmp/offrec-bot-login.mjs && node /tmp/offrec-bot-login.mjs`
       : `irm ${scriptUrl} -OutFile $env:TEMP\\offrec-bot-login.mjs; node $env:TEMP\\offrec-bot-login.mjs`
+
+  const calClientId = data?.calendar.clientId || '<GOOGLE_CLIENT_ID>'
+  const calScriptUrl = `${origin}/calendar-login.mjs`
+  const calTerminalCommand =
+    calOsTab === 'unix'
+      ? `curl -sSL ${calScriptUrl} -o /tmp/offrec-cal-login.mjs && node /tmp/offrec-cal-login.mjs "${calClientId}"`
+      : `irm ${calScriptUrl} -OutFile $env:TEMP\\offrec-cal-login.mjs; node $env:TEMP\\offrec-cal-login.mjs "${calClientId}"`
 
   const handleCopyCommand = async () => {
     try {
@@ -50,6 +70,62 @@ export function AdminAgentBot() {
       setTimeout(() => setCopiedCmd(false), 2500)
     } catch {
       setError('Impossible de copier automatiquement. Sélectionnez et copiez la commande manuellement.')
+    }
+  }
+
+  const handleCopyCalCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(calTerminalCommand)
+      setCopiedCalCmd(true)
+      setTimeout(() => setCopiedCalCmd(false), 2500)
+    } catch {
+      setError('Impossible de copier automatiquement. Sélectionnez et copiez la commande manuellement.')
+    }
+  }
+
+  const handleCalendarOAuth = async () => {
+    try {
+      setCalConnecting(true)
+      setError(null)
+      const { url } = await apiAdminCalendarAuthUrl()
+      window.location.href = url
+    } catch (err) {
+      setError((err as Error).message || 'Impossible de démarrer la connexion Google Calendar')
+      setCalConnecting(false)
+    }
+  }
+
+  const handleCalendarSaveToken = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!calTokenText.trim()) return
+    try {
+      setCalSubmitting(true)
+      setError(null)
+      setSuccessMsg(null)
+      const res = await apiAdminCalendarSaveToken(calTokenText.trim())
+      setSuccessMsg(res.message)
+      setCalTokenText('')
+      await loadStatus()
+    } catch (err) {
+      setError((err as Error).message || 'Jeton Google Calendar invalide')
+    } finally {
+      setCalSubmitting(false)
+    }
+  }
+
+  const handleCalendarDisconnect = async () => {
+    if (!window.confirm('Déconnecter le compte Google organisateur enregistré en base ?')) return
+    try {
+      setCalSubmitting(true)
+      setError(null)
+      setSuccessMsg(null)
+      const res = await apiAdminCalendarDisconnect()
+      setSuccessMsg(res.message)
+      await loadStatus()
+    } catch (err) {
+      setError((err as Error).message || 'Échec de la déconnexion')
+    } finally {
+      setCalSubmitting(false)
     }
   }
 
@@ -67,6 +143,18 @@ export function AdminAgentBot() {
   }
 
   useEffect(() => {
+    const cal = searchParams.get('calendar')
+    const calErr = searchParams.get('calendar_error')
+    if (cal === 'connected') {
+      setSuccessMsg('Compte Google organisateur connecté et enregistré avec succès !')
+      searchParams.delete('calendar')
+      setSearchParams(searchParams, { replace: true })
+    } else if (calErr) {
+      setError(`Échec connexion Google Calendar : ${calErr}`)
+      setShowCalFallback(true)
+      searchParams.delete('calendar_error')
+      setSearchParams(searchParams, { replace: true })
+    }
     loadStatus()
   }, [])
 
@@ -267,22 +355,58 @@ export function AdminAgentBot() {
             <div className="admin-bot-card-body">
               <div className="admin-bot-info-row">
                 <span className="admin-bot-info-label">Compte Organisateur :</span>
-                <span className="admin-bot-info-value font-mono">
-                  {data?.calendar.organizerAccount || 'lumine.aether.us@gmail.com'}
+                <span className="admin-bot-info-value">
+                  {data?.calendar.organizerAccount || 'Non configuré'}
+                </span>
+              </div>
+
+              <div className="admin-bot-info-row">
+                <span className="admin-bot-info-label">Source active :</span>
+                <span className="admin-bot-info-value">
+                  {data?.calendar.source === 'database'
+                    ? 'Base de données (Admin)'
+                    : data?.calendar.source === 'env'
+                      ? 'Variables serveur (.env)'
+                      : 'Aucune'}
                 </span>
               </div>
 
               <div className="admin-bot-info-row">
                 <span className="admin-bot-info-label">Invité automatique (Bot) :</span>
-                <span className="admin-bot-info-value font-mono">
+                <span className="admin-bot-info-value">
                   {data?.calendar.botAttendeeEmail || 'nomade.wanderer.2002@gmail.com'}
                 </span>
               </div>
 
-              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                Les liens Google Meet créés par OffRec ajoutent automatiquement l'adresse du bot en invité de confiance.
-                Combiné à sa session authentifiée, Google autorise son entrée immédiate sans blocage de datacenter.
-              </p>
+              <div className="admin-bot-card-actions">
+                <Button
+                  size="sm"
+                  onClick={handleCalendarOAuth}
+                  disabled={calConnecting || !data?.calendar.hasOAuthClient}
+                >
+                  <ExternalLink size={14} />
+                  <span>{calConnecting ? 'Redirection...' : 'Connecter avec Google (1 clic)'}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCalFallback((v) => !v)}
+                >
+                  <Terminal size={14} />
+                  <span>{showCalFallback ? 'Masquer terminal' : 'Méthode terminal'}</span>
+                </Button>
+                {data?.calendar.source === 'database' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCalendarDisconnect}
+                    disabled={calSubmitting}
+                  >
+                    <Trash2 size={14} />
+                    <span>Réinitialiser</span>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -453,6 +577,90 @@ export function AdminAgentBot() {
           </div>
         )}
       </div>
+
+      {/* SECTION ALTERNATIVE TERMINAL POUR COMPTE ORGANISATEUR (CALENDAR) */}
+      {showCalFallback && (
+        <div className="admin-bot-guide">
+          <div className="admin-bot-guide-header">
+            <h2 className="admin-bot-section-title">
+              <Calendar size={20} className="admin-bot-icon-emerald" />
+              Connexion Compte Google Organisateur via Terminal (Client OAuth Bureau)
+            </h2>
+            <div className="admin-bot-os-switch">
+              <button
+                type="button"
+                className={`admin-bot-os-btn ${calOsTab === 'unix' ? 'admin-bot-os-btn--active' : ''}`}
+                onClick={() => setCalOsTab('unix')}
+              >
+                Linux / macOS
+              </button>
+              <button
+                type="button"
+                className={`admin-bot-os-btn ${calOsTab === 'windows' ? 'admin-bot-os-btn--active' : ''}`}
+                onClick={() => setCalOsTab('windows')}
+              >
+                Windows (PowerShell)
+              </button>
+            </div>
+          </div>
+
+          <p className="admin-bot-section-desc">
+            Utilisez cette méthode si le bouton « Connecter avec Google (1 clic) » renvoie une erreur{' '}
+            <code className="admin-bot-inline-code">redirect_uri_mismatch</code> (client OAuth de type Application de bureau).
+          </p>
+
+          <ol className="admin-bot-steps">
+            <li>
+              <span>Copiez et collez cette commande dans votre terminal :</span>
+              <div className="admin-bot-cmd-box">
+                <code className="admin-bot-cmd-code">{calTerminalCommand}</code>
+                <button
+                  type="button"
+                  className="admin-bot-copy-btn"
+                  onClick={handleCopyCalCommand}
+                  title="Copier la commande"
+                >
+                  {copiedCalCmd ? (
+                    <>
+                      <Check size={14} />
+                      <span>Copié !</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copier</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </li>
+            <li>
+              <span>
+                Connectez-vous dans votre navigateur avec le compte organisateur souhaité (ex.{' '}
+                <strong>lumine.aether.us@gmail.com</strong>) et autorisez l'accès à Google Agenda.
+              </span>
+            </li>
+            <li>
+              <span>Collez ci-dessous le code JSON affiché dans votre terminal (ou un refresh_token brut) :</span>
+              <form onSubmit={handleCalendarSaveToken} className="admin-bot-paste-form" style={{ marginTop: '0.5rem' }}>
+                <textarea
+                  className="admin-bot-textarea"
+                  rows={3}
+                  placeholder='Collez ici {"code":"...","redirectUri":"http://127.0.0.1:...","codeVerifier":"..."} ou 1//0...'
+                  value={calTokenText}
+                  onChange={(e) => setCalTokenText(e.target.value)}
+                  disabled={calSubmitting}
+                />
+                <div className="admin-bot-form-actions">
+                  <Button type="submit" disabled={calSubmitting || !calTokenText.trim()}>
+                    {calSubmitting ? 'Validation...' : 'Enregistrer le compte organisateur'}
+                  </Button>
+                </div>
+              </form>
+            </li>
+          </ol>
+        </div>
+      )}
     </div>
   )
 }

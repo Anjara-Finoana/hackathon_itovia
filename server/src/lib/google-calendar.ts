@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { MADAGASCAR_TIME_ZONE } from '../../../src/lib/interview.js'
+import { prisma } from './prisma.js'
 
 /**
  * Agenda Google d'OffRec (décision produit 2026-10-14) — appels REST directs
@@ -37,13 +38,142 @@ interface GoogleConfig {
   calendarId: string
 }
 
-/** Lue à chaque appel : la configuration peut changer sans redémarrage en test. */
-function readConfig(): GoogleConfig | null {
+export interface CalendarOverrideConfig {
+  refreshToken: string
+  organizerEmail?: string
+  calendarId?: string
+  updatedAt?: string
+}
+
+const SETTING_KEY = 'google_calendar_organizer'
+let calendarOverride: CalendarOverrideConfig | null = null
+let cachedToken: { value: string; expiresAt: number; clientId: string } | null = null
+
+export function getGoogleOAuthClientConfig(): { clientId: string; clientSecret: string } | null {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim() ?? ''
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() ?? ''
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim() ?? ''
-  if (!clientId || !clientSecret || !refreshToken) return null
-  return { clientId, clientSecret, refreshToken, calendarId: process.env.GOOGLE_CALENDAR_ID?.trim() || 'primary' }
+  if (!clientId || !clientSecret) return null
+  return { clientId, clientSecret }
+}
+
+/** Charge la configuration Google Calendar enregistrée en base au démarrage du serveur. */
+export async function initGoogleCalendarOverride(): Promise<void> {
+  try {
+    const row = await prisma.systemSetting.findUnique({ where: { key: SETTING_KEY } })
+    if (row && row.value && typeof row.value === 'object') {
+      const val = row.value as Partial<CalendarOverrideConfig>
+      if (typeof val.refreshToken === 'string' && val.refreshToken.trim()) {
+        calendarOverride = {
+          refreshToken: val.refreshToken.trim(),
+          organizerEmail: typeof val.organizerEmail === 'string' ? val.organizerEmail : undefined,
+          calendarId: typeof val.calendarId === 'string' ? val.calendarId : undefined,
+          updatedAt: row.updatedAt.toISOString(),
+        }
+        cachedToken = null
+      }
+    }
+  } catch (err) {
+    console.warn('[google-calendar] Impossible de charger SystemSetting au démarrage:', (err as Error).message)
+  }
+}
+
+export async function setGoogleCalendarOverride(input: CalendarOverrideConfig): Promise<void> {
+  const value: CalendarOverrideConfig = {
+    refreshToken: input.refreshToken.trim(),
+    organizerEmail: input.organizerEmail?.trim() || undefined,
+    calendarId: input.calendarId?.trim() || 'primary',
+    updatedAt: new Date().toISOString(),
+  }
+  await prisma.systemSetting.upsert({
+    where: { key: SETTING_KEY },
+    create: { key: SETTING_KEY, value: value as unknown as object },
+    update: { value: value as unknown as object },
+  })
+  calendarOverride = value
+  cachedToken = null
+}
+
+export async function clearGoogleCalendarOverride(): Promise<void> {
+  await prisma.systemSetting.deleteMany({ where: { key: SETTING_KEY } })
+  calendarOverride = null
+  cachedToken = null
+}
+
+export function getGoogleCalendarStatus(): {
+  configured: boolean
+  source: 'database' | 'env' | 'none'
+  organizerEmail: string | null
+  calendarId: string
+  updatedAt?: string
+  hasOAuthClient: boolean
+} {
+  const client = getGoogleOAuthClientConfig()
+  const dbToken = calendarOverride?.refreshToken?.trim()
+  const envToken = process.env.GOOGLE_REFRESH_TOKEN?.trim()
+  const source: 'database' | 'env' | 'none' = dbToken ? 'database' : envToken ? 'env' : 'none'
+  return {
+    configured: Boolean(client && (dbToken || envToken)),
+    source,
+    organizerEmail:
+      calendarOverride?.organizerEmail ||
+      (source === 'env' ? process.env.GOOGLE_ORGANIZER_EMAIL?.trim() || null : null),
+    calendarId: calendarOverride?.calendarId || process.env.GOOGLE_CALENDAR_ID?.trim() || 'primary',
+    updatedAt: calendarOverride?.updatedAt,
+    hasOAuthClient: Boolean(client),
+  }
+}
+
+/** Valide un refresh_token auprès de Google et tente de récupérer l'adresse email associée. */
+export async function verifyAndFetchGoogleAccount(
+  refreshToken: string,
+): Promise<{ ok: true; email?: string } | { ok: false; error: string }> {
+  const client = getGoogleOAuthClientConfig()
+  if (!client) return { ok: false, error: 'GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET manquant sur le serveur.' }
+
+  try {
+    const res = await httpCall(endpoints().tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: client.clientId,
+        client_secret: client.clientSecret,
+        refresh_token: refreshToken.trim(),
+      }).toString(),
+    })
+    const body = res.body as { access_token?: string; error?: string; error_description?: string } | null
+    if (res.status < 200 || res.status >= 300 || !body?.access_token) {
+      return {
+        ok: false,
+        error: `Jeton refusé par Google (HTTP ${res.status})${body?.error_description ? ` : ${body.error_description}` : ''}.`,
+      }
+    }
+
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${body.access_token}` },
+    }).catch(() => null)
+    let email: string | undefined
+    if (userRes && userRes.ok) {
+      const info = (await userRes.json().catch(() => null)) as { email?: string } | null
+      if (info?.email) email = info.email
+    }
+    return { ok: true, email }
+  } catch (err) {
+    return { ok: false, error: (err as Error).message }
+  }
+}
+
+/** Lue à chaque appel : la configuration peut changer à chaud depuis l'interface admin. */
+function readConfig(): GoogleConfig | null {
+  const client = getGoogleOAuthClientConfig()
+  const refreshToken = calendarOverride?.refreshToken?.trim() || process.env.GOOGLE_REFRESH_TOKEN?.trim() || ''
+  if (!client || !refreshToken) return null
+  return {
+    clientId: client.clientId,
+    clientSecret: client.clientSecret,
+    refreshToken,
+    calendarId: calendarOverride?.calendarId || process.env.GOOGLE_CALENDAR_ID?.trim() || 'primary',
+  }
 }
 
 export function isGoogleCalendarConfigured(): boolean {
@@ -118,8 +248,6 @@ function logFailure(operation: string, detail: string): void {
 /* ------------------------------------------------------------------ */
 /* Jeton d'accès                                                       */
 /* ------------------------------------------------------------------ */
-
-let cachedToken: { value: string; expiresAt: number; clientId: string } | null = null
 
 async function accessToken(config: GoogleConfig, forceRefresh = false): Promise<CalendarResult<string>> {
   if (!forceRefresh && cachedToken && cachedToken.clientId === config.clientId && cachedToken.expiresAt > Date.now() + 60_000) {
