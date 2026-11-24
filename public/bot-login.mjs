@@ -53,7 +53,14 @@ function tryCopyToClipboard(text) {
           ]
 
   for (const [cmd, args] of commands) {
-    const res = spawnSync(cmd, args, { input: text, encoding: 'utf-8' })
+    // stdio ignore sur stdout/stderr + timeout : xclip/wl-copy forke en arrière-plan
+    // et bloquerait spawnSync indéfiniment si les pipes restaient ouverts.
+    const res = spawnSync(cmd, args, {
+      input: text,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'ignore', 'ignore'],
+      timeout: 1500,
+    })
     if (res.status === 0) return true
   }
   return false
@@ -169,19 +176,20 @@ async function main() {
     // Ignore si le dossier courant n'est pas accessible en écriture
   }
 
-  const copied = tryCopyToClipboard(compactJson)
-
   console.log('\n✅ Session Google capturée avec succès !')
   if (savedFile) {
     console.log(`📁 Fichier enregistré : ${savedFile}`)
   }
-  if (copied) {
-    console.log('📋 Le JSON a été copié automatiquement dans votre presse-papier !')
-  }
   console.log('\n==================== COPIEZ LE JSON CI-DESSOUS ====================')
   console.log(compactJson)
   console.log('====================== FIN DU JSON ===============================')
+
+  const copied = tryCopyToClipboard(compactJson)
+  if (copied) {
+    console.log('📋 Le JSON a également été copié dans votre presse-papier !')
+  }
   console.log('\n👉 Retournez sur /admin/agent-ia dans OffRec, onglet « Coller le JSON », collez et enregistrez.\n')
+  process.exit(0)
 }
 
 main().catch((err) => {
