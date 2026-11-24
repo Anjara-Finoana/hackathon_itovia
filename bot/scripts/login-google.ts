@@ -83,6 +83,7 @@ async function main() {
   await page.waitForTimeout(2000)
 
   const storageState = await context.storageState()
+  const compactJson = JSON.stringify(storageState)
   fs.writeFileSync(outputFile, JSON.stringify(storageState, null, 2), 'utf-8')
 
   console.log(`📁 Fichier de session enregistré avec succès dans :`)
@@ -90,10 +91,14 @@ async function main() {
 
   await browser.close().catch(() => {})
 
+  console.log('\n==================== COPIEZ LE JSON CI-DESSOUS ====================')
+  console.log(compactJson)
+  console.log('====================== FIN DU JSON ===============================')
+
   console.log('\n🚀 Étape suivante :')
   console.log('   Rendez-vous sur l’interface d’administration d’OffRec :')
   console.log('   👉 https://offrec.ffn-tech.com/admin/agent-ia')
-  console.log('   Et téléversez simplement ce fichier google-session.json !')
+  console.log('   Téléversez le fichier ou collez le JSON dans l’onglet « Coller le JSON » !')
   console.log('======================================================\n')
 }
 

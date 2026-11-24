@@ -3,7 +3,9 @@ import {
   AlertCircle,
   Bot,
   Calendar,
+  Check,
   CheckCircle2,
+  Copy,
   FileCode,
   RefreshCw,
   Terminal,
@@ -27,10 +29,29 @@ export function AdminAgentBot() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const [inputMode, setInputMode] = useState<'upload' | 'paste'>('upload')
+  const [inputMode, setInputMode] = useState<'paste' | 'upload'>('paste')
+  const [osTab, setOsTab] = useState<'unix' | 'windows'>('unix')
+  const [copiedCmd, setCopiedCmd] = useState(false)
   const [sessionJsonText, setSessionJsonText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://offrec.ffn-tech.com'
+  const scriptUrl = `${origin}/bot-login.mjs`
+  const terminalCommand =
+    osTab === 'unix'
+      ? `curl -sSL ${scriptUrl} -o /tmp/offrec-bot-login.mjs && node /tmp/offrec-bot-login.mjs`
+      : `irm ${scriptUrl} -OutFile $env:TEMP\\offrec-bot-login.mjs; node $env:TEMP\\offrec-bot-login.mjs`
+
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(terminalCommand)
+      setCopiedCmd(true)
+      setTimeout(() => setCopiedCmd(false), 2500)
+    } catch {
+      setError('Impossible de copier automatiquement. Sélectionnez et copiez la commande manuellement.')
+    }
+  }
 
   const loadStatus = async () => {
     try {
@@ -297,96 +318,140 @@ export function AdminAgentBot() {
         </div>
       )}
 
+      {/* SECTION PROCÉDURE RAPIDE COPIER-COLLER */}
+      <div className="admin-bot-guide">
+        <div className="admin-bot-guide-header">
+          <h2 className="admin-bot-section-title">
+            <Terminal size={20} className="admin-bot-icon-emerald" />
+            Générer la session Google depuis votre terminal (sans cloner le dépôt)
+          </h2>
+          <div className="admin-bot-os-switch">
+            <button
+              type="button"
+              className={`admin-bot-os-btn ${osTab === 'unix' ? 'admin-bot-os-btn--active' : ''}`}
+              onClick={() => setOsTab('unix')}
+            >
+              Linux / macOS
+            </button>
+            <button
+              type="button"
+              className={`admin-bot-os-btn ${osTab === 'windows' ? 'admin-bot-os-btn--active' : ''}`}
+              onClick={() => setOsTab('windows')}
+            >
+              Windows (PowerShell)
+            </button>
+          </div>
+        </div>
+
+        <ol className="admin-bot-steps">
+          <li>
+            <span>Copiez et collez cette commande dans votre terminal (nécessite uniquement Node.js) :</span>
+            <div className="admin-bot-cmd-box">
+              <code className="admin-bot-cmd-code">{terminalCommand}</code>
+              <button
+                type="button"
+                className="admin-bot-copy-btn"
+                onClick={handleCopyCommand}
+                title="Copier la commande"
+              >
+                {copiedCmd ? (
+                  <>
+                    <Check size={14} />
+                    <span>Copié !</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copier</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </li>
+          <li>
+            <span>
+              Une fenêtre navigateur s'ouvre : connectez-vous avec le compte Google souhaité (ex.{' '}
+              <strong>nomade.wanderer.2002@gmail.com</strong>).
+            </span>
+          </li>
+          <li>
+            <span>
+              Revenez sur le terminal : le JSON est affiché (et copié dans votre presse-papier si possible), et un fichier{' '}
+              <code className="admin-bot-inline-code">google-session.json</code> est également créé.
+            </span>
+          </li>
+          <li>
+            <span>Collez ce JSON dans le formulaire ci-dessous (ou déposez le fichier) puis cliquez sur Enregistrer.</span>
+          </li>
+        </ol>
+      </div>
+
       {/* SECTION MISE À JOUR OU TÉLÉVERSEMENT */}
       <div className="admin-bot-update-section">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          <UploadCloud className="w-5 h-5 text-emerald-600" />
+        <h2 className="admin-bot-section-title">
+          <UploadCloud size={20} className="admin-bot-icon-emerald" />
           Mettre à jour ou configurer la session Google
         </h2>
-        <p className="text-sm text-slate-600 mb-4">
-          Vous pouvez importer un fichier <code className="bg-slate-100 px-1 py-0.5 rounded text-xs">google-session.json</code> généré localement pour changer le compte du bot à tout moment sans SSH.
+        <p className="admin-bot-section-desc">
+          Collez le JSON généré par le terminal ou importez le fichier{' '}
+          <code className="admin-bot-inline-code">google-session.json</code> pour changer le compte du bot à chaud.
         </p>
 
         <div className="admin-bot-tabs">
           <button
             type="button"
-            className={`admin-bot-tab ${inputMode === 'upload' ? 'admin-bot-tab--active' : ''}`}
-            onClick={() => setInputMode('upload')}
-          >
-            <UploadCloud className="w-4 h-4 mr-1.5" />
-            Téléverser un fichier
-          </button>
-          <button
-            type="button"
             className={`admin-bot-tab ${inputMode === 'paste' ? 'admin-bot-tab--active' : ''}`}
             onClick={() => setInputMode('paste')}
           >
-            <FileCode className="w-4 h-4 mr-1.5" />
-            Coller le JSON
+            <FileCode size={16} />
+            <span>Coller le JSON</span>
+          </button>
+          <button
+            type="button"
+            className={`admin-bot-tab ${inputMode === 'upload' ? 'admin-bot-tab--active' : ''}`}
+            onClick={() => setInputMode('upload')}
+          >
+            <UploadCloud size={16} />
+            <span>Téléverser un fichier</span>
           </button>
         </div>
 
-        {inputMode === 'upload' ? (
-          <div className="admin-bot-dropzone">
-            <UploadCloud className="w-10 h-10 text-slate-400 mb-2" />
-            <p className="text-sm font-medium text-slate-700">
-              Déposez votre fichier <span className="font-mono text-emerald-600">google-session.json</span>
-            </p>
-            <p className="text-xs text-slate-400 mt-1 mb-3">ou cliquez pour parcourir vos fichiers</p>
-            <input
-              type="file"
-              id="session-upload-input"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={submitting}
-            />
-            <label htmlFor="session-upload-input">
-              <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md cursor-pointer hover:bg-emerald-100">
-                {submitting ? 'Envoi en cours...' : 'Sélectionner le fichier'}
-              </span>
-            </label>
-          </div>
-        ) : (
+        {inputMode === 'paste' ? (
           <form onSubmit={handlePasteSubmit} className="admin-bot-paste-form">
             <textarea
-              className="admin-bot-textarea font-mono text-xs"
-              rows={8}
-              placeholder="Collez ici le contenu JSON complet de google-session.json (cookies et storageState Playwright)..."
+              className="admin-bot-textarea"
+              rows={7}
+              placeholder='Collez ici le JSON généré dans votre terminal (commençant par {"cookies":...)...'
               value={sessionJsonText}
               onChange={(e) => setSessionJsonText(e.target.value)}
               disabled={submitting}
             />
-            <div className="mt-2 flex justify-end">
+            <div className="admin-bot-form-actions">
               <Button type="submit" disabled={submitting || !sessionJsonText.trim()}>
                 {submitting ? 'Enregistrement...' : 'Enregistrer la session'}
               </Button>
             </div>
           </form>
+        ) : (
+          <div className="admin-bot-dropzone">
+            <UploadCloud size={36} className="admin-bot-dropzone-icon" />
+            <p className="admin-bot-dropzone-title">
+              Déposez votre fichier <span className="admin-bot-inline-code">google-session.json</span>
+            </p>
+            <p className="admin-bot-dropzone-hint">ou cliquez ci-dessous pour parcourir vos fichiers</p>
+            <input
+              type="file"
+              id="session-upload-input"
+              accept=".json,application/json"
+              className="admin-bot-file-input"
+              onChange={handleFileUpload}
+              disabled={submitting}
+            />
+            <label htmlFor="session-upload-input" className="admin-bot-upload-btn">
+              {submitting ? 'Envoi en cours...' : 'Sélectionner le fichier'}
+            </label>
+          </div>
         )}
-      </div>
-
-      {/* SECTION PROCÉDURE RAPIDE */}
-      <div className="admin-bot-guide">
-        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mb-2">
-          <Terminal className="w-4 h-4 text-slate-600" />
-          Procédure rapide : Connexion locale en 1 clic
-        </h3>
-        <ol className="text-xs text-slate-600 space-y-1.5 list-decimal list-inside leading-relaxed">
-          <li>
-            Sur votre machine de développement, exécutez la commande :
-            <pre className="inline-block mx-1.5 px-2 py-0.5 bg-slate-900 text-emerald-400 font-mono rounded text-xs">
-              npm run bot:login
-            </pre>
-          </li>
-          <li>
-            Une fenêtre Chromium s'ouvre : connectez-vous avec{' '}
-            <strong className="text-slate-800">nomade.wanderer.2002@gmail.com</strong>.
-          </li>
-          <li>
-            Dès validation, le script génère automatiquement le fichier et peut le téléverser directement sur OffRec, ou vous pouvez glisser le fichier généré dans cette page.
-          </li>
-        </ol>
       </div>
     </div>
   )
