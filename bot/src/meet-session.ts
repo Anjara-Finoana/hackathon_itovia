@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { PassThrough } from 'node:stream'
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { AudioPipeline, type TranscriptEvent } from './audio-pipeline.js'
 
@@ -31,6 +32,7 @@ export class MeetSession {
   private context: BrowserContext | null = null
   private page: Page | null = null
   private audioPipeline: AudioPipeline | null = null
+  private audioStream: PassThrough | null = null
   private isDestroyed = false
 
   constructor(config: MeetSessionConfig) {
@@ -85,6 +87,89 @@ export class MeetSession {
       })
 
       this.page = await this.context.newPage()
+
+      // Pont audio navigateur -> Node.js (flux WebM/Opus vers FFmpeg/Deepgram)
+      await this.page.exposeFunction('__offrecPushAudioChunk', (base64: string) => {
+        if (this.audioStream && !this.audioStream.destroyed && !this.isDestroyed) {
+          this.audioStream.write(Buffer.from(base64, 'base64'))
+        }
+      })
+
+      await this.page.addInitScript(`(() => {
+        const remoteTracks = new Set();
+        let audioCtx = null;
+        let dest = null;
+        let recorder = null;
+
+        function attachTrack(track) {
+          if (!track || track.kind !== 'audio' || remoteTracks.has(track)) return;
+          remoteTracks.add(track);
+          if (audioCtx && dest) {
+            try {
+              const src = audioCtx.createMediaStreamSource(new MediaStream([track]));
+              src.connect(dest);
+            } catch {}
+          }
+        }
+
+        const OrigPC = window.RTCPeerConnection;
+        if (OrigPC) {
+          const WrappedPC = function (...args) {
+            const pc = new OrigPC(...args);
+            pc.addEventListener('track', (ev) => {
+              if (ev.track) attachTrack(ev.track);
+            });
+            return pc;
+          };
+          WrappedPC.prototype = OrigPC.prototype;
+          window.RTCPeerConnection = WrappedPC;
+        }
+
+        window.__offrecStartAudioCapture = () => {
+          if (recorder) return;
+          const AC = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AC();
+          dest = audioCtx.createMediaStreamDestination();
+
+          // Source silencieuse pour garantir l'émission immédiate de l'en-tête WebM
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0;
+          osc.connect(gain);
+          gain.connect(dest);
+          osc.start();
+
+          for (const track of remoteTracks) {
+            try {
+              const src = audioCtx.createMediaStreamSource(new MediaStream([track]));
+              src.connect(dest);
+            } catch {}
+          }
+
+          document.querySelectorAll('audio, video').forEach((el) => {
+            const stream = el && el.srcObject;
+            if (stream && typeof stream.getAudioTracks === 'function') {
+              stream.getAudioTracks().forEach(attachTrack);
+            }
+          });
+
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : 'audio/webm';
+          recorder = new MediaRecorder(dest.stream, { mimeType });
+          recorder.ondataavailable = async (ev) => {
+            if (!ev.data || ev.data.size === 0) return;
+            const buf = await ev.data.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            if (typeof window.__offrecPushAudioChunk === 'function') {
+              window.__offrecPushAudioChunk(btoa(bin));
+            }
+          };
+          recorder.start(1000);
+        };
+      })();`)
 
       // Navigation vers l'URL
       console.log(`[MeetSession:${this.id}] Navigation vers ${this.config.meetUrl}`)
@@ -353,9 +438,20 @@ export class MeetSession {
       },
     })
 
-    // Démarrage du pipeline
-    // Dans le conteneur, un flux PassThrough ou simulation diffuse l'audio vers Deepgram
-    this.audioPipeline.start(process.stdin)
+    // Démarrage du pipeline sur un flux PassThrough alimenté par MediaRecorder dans le navigateur
+    this.audioStream = new PassThrough()
+    this.audioPipeline.start(this.audioStream)
+
+    if (this.page) {
+      this.page
+        .evaluate(() => {
+          const start = (globalThis as unknown as Record<string, (() => void) | undefined>).__offrecStartAudioCapture
+          start?.()
+        })
+        .catch((err) => {
+          console.warn(`[MeetSession:${this.id}] Impossible de démarrer la capture audio navigateur:`, err)
+        })
+    }
   }
 
   private updateStatus(status: MeetingBotStatus, detail?: string) {
@@ -395,6 +491,11 @@ export class MeetSession {
     this.isDestroyed = true
 
     this.updateStatus('deconnexion', 'Arrêt du bot et libération des ressources')
+
+    if (this.audioStream && !this.audioStream.destroyed) {
+      this.audioStream.end()
+      this.audioStream = null
+    }
 
     if (this.audioPipeline) {
       this.audioPipeline.stop()
