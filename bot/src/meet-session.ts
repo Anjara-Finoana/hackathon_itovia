@@ -42,18 +42,22 @@ export class MeetSession {
     try {
       this.updateStatus('connexion', 'Lancement de Chromium...')
 
+      const silenceFile = path.resolve(process.cwd(), 'assets', 'silence.wav')
+      const launchArgs = [
+        '--use-fake-ui-for-media-stream',
+        '--use-fake-device-for-media-stream',
+        ...(fs.existsSync(silenceFile) ? [`--use-file-for-fake-audio-capture=${silenceFile}`] : []),
+        '--autoplay-policy=no-user-gesture-required',
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ]
+
       this.browser = await chromium.launch({
         headless: false, // Nécessite Xvfb pour maintenir l'audio WebRTC
-        args: [
-          '--use-fake-ui-for-media-stream',
-          '--use-fake-device-for-media-stream',
-          '--autoplay-policy=no-user-gesture-required',
-          '--disable-blink-features=AutomationControlled',
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ],
+        args: launchArgs,
         ignoreDefaultArgs: ['--mute-audio'],
       })
 
@@ -119,9 +123,8 @@ export class MeetSession {
         )
       }
 
-      // 2. Désactiver micro et caméra si possible via raccourcis clavier
-      await this.page.keyboard.press('Control+d').catch(() => {})
-      await this.page.keyboard.press('Control+e').catch(() => {})
+      // 2. Couper explicitement micro et caméra (idempotent, évite les bascules accidentelles)
+      await this.ensureMicAndCameraOff()
 
       // 3. Fermer les modales de permission/avertissement caméra/micro si présentes
       const dismissModalSelectors = [
@@ -155,6 +158,7 @@ export class MeetSession {
       // 4b. Vérifier si le bot est déjà directement dans l'appel (ex. /new ou entrée auto)
       if (await this.isAlreadyInCall()) {
         console.log(`[MeetSession:${this.id}] Bot déjà dans l'appel Google Meet dès l'ouverture.`)
+        await this.ensureMicAndCameraOff()
         this.updateStatus('en_appel', 'Connecté à la réunion')
         this.startRecording()
         return
@@ -209,6 +213,7 @@ export class MeetSession {
       // Vérifier si le bot est entré directement (compte invité ou appel ouvert)
       if (await this.isAlreadyInCall()) {
         console.log(`[MeetSession:${this.id}] Bot entré directement dans la réunion (compte Google invité/admis).`)
+        await this.ensureMicAndCameraOff()
         this.updateStatus('en_appel', 'Connecté à la réunion')
         this.startRecording()
         return
@@ -224,6 +229,21 @@ export class MeetSession {
       await this.saveScreenshot('04-error')
       this.updateStatus('erreur', (err as Error).message)
       await this.stop()
+    }
+  }
+
+  private async ensureMicAndCameraOff(): Promise<void> {
+    if (!this.page) return
+    const offSelectors = [
+      'button[aria-label*="Désactiver le micro" i], button[aria-label*="Turn off microphone" i], div[role="button"][aria-label*="Désactiver le micro" i], div[role="button"][aria-label*="Turn off microphone" i]',
+      'button[aria-label*="Désactiver la caméra" i], button[aria-label*="Turn off camera" i], div[role="button"][aria-label*="Désactiver la caméra" i], div[role="button"][aria-label*="Turn off camera" i]',
+    ]
+    for (const selector of offSelectors) {
+      const btn = this.page.locator(selector).first()
+      if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await btn.click().catch(() => {})
+        await this.page.waitForTimeout(250)
+      }
     }
   }
 
@@ -280,6 +300,7 @@ export class MeetSession {
 
         if (inCall && this.status !== 'en_appel' && this.status !== 'enregistrement') {
           clearInterval(interval)
+          await this.ensureMicAndCameraOff()
           this.updateStatus('en_appel', 'Admis dans la réunion')
           this.startRecording()
           return

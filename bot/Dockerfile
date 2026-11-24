@@ -44,8 +44,10 @@ RUN npx playwright install chromium
 COPY bot/ ./
 RUN npm run build
 
-# Utilisateur système non-root et répertoires de persistance
-RUN mkdir -p /app/bot/auth /app/bot/debug && useradd -m -s /bin/bash botuser && chown -R botuser:botuser /app/bot /ms-playwright
+# Utilisateur système non-root, fichier audio silencieux et répertoires de persistance
+RUN mkdir -p /app/bot/auth /app/bot/debug /app/bot/assets \
+    && ffmpeg -y -f lavfi -i anullsrc=r=16000:cl=mono -t 1 /app/bot/assets/silence.wav \
+    && useradd -m -s /bin/bash botuser && chown -R botuser:botuser /app/bot /ms-playwright
 USER botuser
 
 EXPOSE 5001
