@@ -43,6 +43,19 @@ router.post('/init-from-interview', requireAuth, async (req: Request, res: Respo
     }
 
     if (interview.meeting) {
+      if (interview.meetUrl && interview.meeting.meetUrl !== interview.meetUrl) {
+        const updatedMeeting = await prisma.meeting.update({
+          where: { id: interview.meeting.id },
+          data: { meetUrl: interview.meetUrl },
+          include: {
+            bots: true,
+            notes: true,
+            actionItems: true,
+          },
+        })
+        res.json({ meeting: updatedMeeting })
+        return
+      }
       res.json({ meeting: interview.meeting })
       return
     }
