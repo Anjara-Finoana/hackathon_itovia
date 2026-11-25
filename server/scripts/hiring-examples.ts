@@ -810,9 +810,21 @@ check('issue : note de 501 caractères → refusé', !parses(interviewOutcomeSch
 const nextRound = { scheduledAt: new Date(Date.now() + 3 * DAY).toISOString(), durationMinutes: 45 }
 check('issue : second entretien + date → ok', parses(interviewOutcomeSchema, { interviewId: uuid, result: 'second_entretien', nextRound }))
 check('issue : date de tour suivant avec retenu → refusé', !parses(interviewOutcomeSchema, { interviewId: uuid, result: 'retenu', nextRound }))
-check('issue : tour suivant dans 1 h → refusé (fenêtre 2 h)', !parses(interviewOutcomeSchema, {
-  interviewId: uuid, result: 'second_entretien', nextRound: { scheduledAt: new Date(Date.now() + HOUR).toISOString(), durationMinutes: 30 },
+check('issue : tour suivant dans le passé → refusé', !parses(interviewOutcomeSchema, {
+  interviewId: uuid, result: 'second_entretien', nextRound: { scheduledAt: new Date(Date.now() - HOUR).toISOString(), durationMinutes: 30 },
 }))
+check('issue : tour suivant dans 1 h → refusé si INTERVIEW_MIN_LEAD_MINUTES=120', (() => {
+  const prev = process.env.INTERVIEW_MIN_LEAD_MINUTES
+  process.env.INTERVIEW_MIN_LEAD_MINUTES = '120'
+  try {
+    return !parses(interviewOutcomeSchema, {
+      interviewId: uuid, result: 'second_entretien', nextRound: { scheduledAt: new Date(Date.now() + HOUR).toISOString(), durationMinutes: 30 },
+    })
+  } finally {
+    if (prev === undefined) delete process.env.INTERVIEW_MIN_LEAD_MINUTES
+    else process.env.INTERVIEW_MIN_LEAD_MINUTES = prev
+  }
+})())
 check('absence : explication de 2 caractères → refusé', !parses(absenceReplySchema, { interviewId: uuid, reason: 'ok' }))
 check('absence : téléphone → refusé', !parses(absenceReplySchema, { interviewId: uuid, reason: 'Rappelez-moi au 034 12 345 67' }))
 check('absence : explication valide → ok', parses(absenceReplySchema, { interviewId: uuid, reason: 'Panne de taxi-be' }))
