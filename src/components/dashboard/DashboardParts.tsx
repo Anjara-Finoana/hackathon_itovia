@@ -211,7 +211,13 @@ export function DashboardHeader(props: {
           <RefreshCw size={15} className={loading ? 'odash-spin' : ''} aria-hidden />
           {loading && hasData ? 'Actualisation…' : 'Actualiser'}
         </Button>
-        <Button variant="secondary" size="sm" onClick={onExport} disabled={!hasData}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onExport}
+          disabled={!hasData}
+          aria-label="Exporter le tableau de bord en CSV"
+        >
           <Download size={15} aria-hidden />
           Exporter en CSV
         </Button>

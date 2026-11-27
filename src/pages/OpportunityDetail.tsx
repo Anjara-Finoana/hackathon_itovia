@@ -133,7 +133,10 @@ export function OpportunityDetail({ backLabel, backTo, candidate }: OpportunityD
 
         <p className="opp-location detail-location">
           <MapPin size={16} />
-          {opportunity.city}, {opportunity.province} · Date limite : {formatDate(opportunity.deadline)}
+          {opportunity.city && opportunity.province && opportunity.city !== opportunity.province
+            ? `${opportunity.city}, ${opportunity.province}`
+            : opportunity.city || opportunity.province}{' '}
+          · Date limite : {formatDate(opportunity.deadline)}
         </p>
 
         {/* Confiance de l'employeur : jamais dans un dossier candidat avant la

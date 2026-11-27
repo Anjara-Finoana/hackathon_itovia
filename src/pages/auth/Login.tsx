@@ -96,9 +96,9 @@ export function Login() {
       {/* ── Panneau droit blanc ── */}
       <motion.div
         className="split-right-panel"
-        initial={{ opacity: 0, x: 28 }}
+        initial={{ opacity: 0.92, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="split-form-wrapper">
           <div className="split-form-header">

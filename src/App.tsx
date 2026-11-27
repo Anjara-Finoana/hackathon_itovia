@@ -522,6 +522,7 @@ export default function App() {
             <Route path="cgu" element={<Navigate to="/conditions-d-utilisation" replace />} />
             <Route path="terms" element={<Navigate to="/conditions-d-utilisation" replace />} />
 
+            <Route path="offres" element={<Navigate to="/#offres" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

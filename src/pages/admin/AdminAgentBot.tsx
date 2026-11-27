@@ -433,7 +433,7 @@ export function AdminAgentBot() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 py-4 text-center">
+                <p className="admin-bot-empty">
                   Aucun bot actuellement déployé dans un appel.
                 </p>
               )}

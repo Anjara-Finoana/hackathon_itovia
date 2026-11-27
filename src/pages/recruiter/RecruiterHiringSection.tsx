@@ -158,7 +158,7 @@ export function RecruiterHiringSection() {
                 <HiringFunnel funnel={funnel} title="Votre entonnoir de recrutement, de la transmission à l’embauche" />
               )}
               <div className="hdash-panel-actions">
-                <Button variant="outline" size="sm" onClick={exportCsv}>
+                <Button variant="outline" size="sm" onClick={exportCsv} aria-label="Exporter l’entonnoir de recrutement en CSV">
                   <Download size={15} aria-hidden />
                   Exporter en CSV
                 </Button>

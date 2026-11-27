@@ -213,6 +213,7 @@ export function RecruiterOpportunityList() {
               const count = receivedSuggestions.filter((s) => s.opportunity.id === o.id).length
               const state = fillState(o)
               const filled = Boolean(o.filledAt)
+              const allPositionsFilled = state.activePlacements >= state.positions
               return (
                 <Card key={o.id} className={`rol-card${filled ? ' is-filled' : ''}`}>
                   <div className="rol-head">
@@ -254,7 +255,14 @@ export function RecruiterOpportunityList() {
                         Rouvrir
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" aria-haspopup="dialog" onClick={() => openDialog('fill', o.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-haspopup="dialog"
+                        disabled={allPositionsFilled}
+                        title={allPositionsFilled ? 'Tous les postes sont déjà pourvus' : undefined}
+                        onClick={() => openDialog('fill', o.id)}
+                      >
                         <CheckCircle2 size={14} aria-hidden />
                         Marquer comme pourvue
                       </Button>

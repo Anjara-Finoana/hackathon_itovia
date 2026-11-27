@@ -22,9 +22,9 @@ export function AppShell() {
   const [query, setQuery] = useState('')
 
   const handleLogout = async () => {
-    await logout()
     setMenuOpen(false)
-    navigate('/')
+    await logout()
+    navigate('/connexion', { replace: true })
   }
 
   const handleSearch = (e: FormEvent) => {

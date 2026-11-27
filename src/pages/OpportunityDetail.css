@@ -98,6 +98,10 @@
   margin-bottom: 0.75rem;
 }
 
+.detail-description-text {
+  white-space: pre-line;
+}
+
 .detail-description h3 {
   font-size: 1rem;
   margin: 1rem 0 0.5rem;

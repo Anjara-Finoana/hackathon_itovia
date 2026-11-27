@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Briefcase, Building2, Check, Hammer, Search, ShieldCheck } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import dashboardPreview from '../assets/dashboard-preview.png'
 import { FadeUp, Stagger } from '../components/motion/Motion'
 import { OpportunityCard } from '../components/opportunity/OpportunityCard'
@@ -72,11 +72,22 @@ export function Landing() {
   // Un membre déjà connecté qui atterrit sur « / » (ex. lien direct, retour
   // arrière) doit rejoindre son tableau de bord plutôt que revoir la page
   // marketing dans la coquille applicative — voir même logique dans Login.tsx.
+  const { hash } = useLocation()
+
   useEffect(() => {
     if (currentUser) {
       navigate(homePathForRole(currentUser.role), { replace: true })
     }
   }, [currentUser, navigate])
+
+  useEffect(() => {
+    if (!hash) return
+    const targetId = hash.slice(1)
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [hash])
 
   if (currentUser) return null
 
@@ -148,7 +159,7 @@ export function Landing() {
             ))}
           </div>
           <p className="stats-source">
-            Sources : Observatoire de la Jeunesse Madagascar, Afrobarometer — voir la fiche technique du projet.
+            Sources : Observatoire de la Jeunesse Madagascar, Afrobarometer.
           </p>
         </div>
       </section>
@@ -257,11 +268,9 @@ export function Landing() {
                   OffRec. Leurs coordonnées restent privées : OffRec organise le contact.
                 </p>
               </div>
-              <Link to="/annuaire/talents" className="landing-talents-link">
-                <Button variant="outline">
-                  Découvrir les talents
-                  <ArrowRight size={16} />
-                </Button>
+              <Link to="/annuaire/talents" className="btn btn-outline landing-talents-link">
+                Découvrir les talents
+                <ArrowRight size={16} />
               </Link>
             </div>
           </FadeUp>
@@ -278,11 +287,9 @@ export function Landing() {
                   Leurs noms ne sont jamais affichés.
                 </p>
               </div>
-              <Link to="/annuaire/entreprises" className="landing-talents-link">
-                <Button variant="outline">
-                  Voir les entreprises
-                  <ArrowRight size={16} />
-                </Button>
+              <Link to="/annuaire/entreprises" className="btn btn-outline landing-talents-link">
+                Voir les entreprises
+                <ArrowRight size={16} />
               </Link>
             </div>
           </FadeUp>

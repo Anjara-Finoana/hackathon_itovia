@@ -89,10 +89,8 @@ export function PublicCompanies() {
           </ul>
           {canRecommend && (
             <div className="ptl-actions">
-              <Link to="/annuaire/recommander-une-entreprise">
-                <Button>
-                  <HeartHandshake size={16} aria-hidden /> Recommander une entreprise
-                </Button>
+              <Link to="/annuaire/recommander-une-entreprise" className="btn btn-primary">
+                <HeartHandshake size={16} aria-hidden /> Recommander une entreprise
               </Link>
             </div>
           )}
