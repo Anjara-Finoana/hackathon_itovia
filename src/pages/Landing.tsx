@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import dashboardPreview from '../assets/dashboard-preview.png'
 import { FadeUp, Stagger } from '../components/motion/Motion'
 import { OpportunityCard } from '../components/opportunity/OpportunityCard'
-import { Button } from '../components/ui/Button'
 import { useApp } from '../context/AppContext'
 import { homePathForRole } from '../lib/roles'
 import './Landing.css'
@@ -120,16 +119,12 @@ export function Landing() {
                 testé — avec le prix qu’ils ont payé et la date du chantier.
               </p>
               <div className="hero-cta">
-                <Link to="/annuaire">
-                  <Button size="lg">
-                    Voir l’annuaire
-                    <ArrowRight size={18} />
-                  </Button>
+                <Link to="/annuaire" className="btn btn-primary btn-lg">
+                  Voir l’annuaire
+                  <ArrowRight size={18} />
                 </Link>
-                <Link to="/inscription">
-                  <Button variant="outline" size="lg">
-                    Créer un compte
-                  </Button>
+                <Link to="/inscription" className="btn btn-outline btn-lg">
+                  Créer un compte
                 </Link>
               </div>
             </FadeUp>
@@ -213,13 +208,11 @@ export function Landing() {
                   <h3>{a.title}</h3>
                   <p>{a.text}</p>
                   <div className="audience-actions">
-                    <Link to={a.action.to}>
-                      <Button
-                        size="sm"
-                        variant={i === active ? 'outline' : 'primary'}
-                      >
-                        {a.action.label}
-                      </Button>
+                    <Link
+                      to={a.action.to}
+                      className={`btn btn-sm ${i === active ? 'btn-outline' : 'btn-primary'}`}
+                    >
+                      {a.action.label}
                     </Link>
                     <Link to={a.secondary.to} className="audience-more">
                       {a.secondary.label}
@@ -339,10 +332,8 @@ export function Landing() {
                   ))}
                 </ul>
                 <div className="cta-actions">
-                  <Link to="/inscription">
-                    <Button variant="secondary" size="lg">
-                      Créer un compte
-                    </Button>
+                  <Link to="/inscription" className="btn btn-secondary btn-lg">
+                    Créer un compte
                   </Link>
                   <Link to="/annuaire" className="cta-link">
                     Parcourir l’annuaire

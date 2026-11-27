@@ -208,7 +208,7 @@ export function apiConfirmVerificationLink(token: string) {
 }
 
 export function apiLogout() {
-  return request<void>('/auth/logout', { method: 'POST', keepalive: true })
+  return request<{ ok: true }>('/auth/logout', { method: 'POST' })
 }
 
 export function apiUpdateCandidateProfile(profile: CandidateProfile) {

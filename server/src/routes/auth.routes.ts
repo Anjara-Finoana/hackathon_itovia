@@ -262,7 +262,7 @@ router.post('/logout', requireAuth, async (req, res, next) => {
       await prisma.auditLog.create({ data: { userId: req.session.sub, action: 'logout' } })
     }
     res.clearCookie(process.env.COOKIE_NAME ?? 'offrec_session')
-    res.status(204).end()
+    res.status(200).json({ ok: true })
   } catch (err) {
     next(err)
   }
