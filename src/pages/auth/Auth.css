@@ -80,8 +80,8 @@
   height: 72px;
   margin-bottom: 1.5rem;
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .split-brand-name {

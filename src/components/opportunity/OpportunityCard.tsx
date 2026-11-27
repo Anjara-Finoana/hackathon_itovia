@@ -32,7 +32,9 @@ export function OpportunityCard({ opportunity, detailPath }: OpportunityCardProp
       </div>
       <p className="opp-location">
         <MapPin size={14} aria-hidden />
-        {opportunity.city}, {opportunity.province}
+        {opportunity.city && opportunity.province && opportunity.city !== opportunity.province
+          ? `${opportunity.city}, ${opportunity.province}`
+          : opportunity.city || opportunity.province}
       </p>
       <p className="opp-desc">
         {opportunity.description.slice(0, 120)}
