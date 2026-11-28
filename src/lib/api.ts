@@ -2900,3 +2900,60 @@ export function apiAdminCalendarDisconnect(): Promise<{ success: boolean; messag
   })
 }
 
+export interface RecommendedQuestionItem {
+  category: 'technique' | 'experience' | 'soft_skills' | 'vigilance'
+  question: string
+  intent: string
+}
+
+export interface InterviewQuestionsResult {
+  questions: RecommendedQuestionItem[]
+  focusPoints: string[]
+  generatedAt: string
+}
+
+export interface CandidateComparisonItem {
+  suggestionId: string
+  fullName: string
+  rank: number
+  technicalFitScore: number | null
+  culturalFitScore: number | null
+  recommendation: string | null
+  explanation: string
+}
+
+export interface OpportunityAiDecisionResult {
+  recommendedCandidate: {
+    suggestionId: string
+    fullName: string
+    reason: string
+  } | null
+  ranking: CandidateComparisonItem[]
+  pendingCandidates: string[]
+  summary: string
+  generatedAt: string
+}
+
+export function apiGetInterviewQuestions(suggestionId: string): Promise<{ data: InterviewQuestionsResult | null }> {
+  return request<{ data: InterviewQuestionsResult | null }>(`/match-suggestions/${suggestionId}/ai-questions`)
+}
+
+export function apiGenerateInterviewQuestions(suggestionId: string): Promise<{ data: InterviewQuestionsResult }> {
+  return request<{ data: InterviewQuestionsResult }>(`/match-suggestions/${suggestionId}/ai-questions`, {
+    method: 'POST',
+  })
+}
+
+export function apiGetOfferAiDecision(opportunityId: string): Promise<{ data: OpportunityAiDecisionResult | null }> {
+  return request<{ data: OpportunityAiDecisionResult | null }>(
+    `/match-suggestions/opportunities/${opportunityId}/ai-decision`,
+  )
+}
+
+export function apiGenerateOfferAiDecision(opportunityId: string): Promise<{ data: OpportunityAiDecisionResult }> {
+  return request<{ data: OpportunityAiDecisionResult }>(
+    `/match-suggestions/opportunities/${opportunityId}/ai-decision`,
+    { method: 'POST' },
+  )
+}
+

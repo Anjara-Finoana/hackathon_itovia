@@ -1,16 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot, Play, Square, CheckSquare, Sparkles, AlertCircle, Radio, ShieldCheck, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { Bot, Play, Square, CheckSquare, Sparkles, AlertCircle, Radio, ShieldCheck, Info } from 'lucide-react'
 import { Button } from '../ui/Button'
 import './MeetingBotPanel.css'
-
-interface TranscriptItem {
-  id?: string
-  speakerName: string
-  speakerRole: string
-  startTime: number
-  endTime: number
-  text: string
-}
 
 interface ActionItem {
   id: string
@@ -49,6 +40,7 @@ interface MeetingData {
   bots: MeetingBotData[]
   notes: MeetingNote[]
   actionItems: ActionItem[]
+  _count?: { transcripts: number }
 }
 
 interface MeetingBotPanelProps {
@@ -63,8 +55,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [transcripts, setTranscripts] = useState<TranscriptItem[]>([])
-  const [showLiveTranscript, setShowLiveTranscript] = useState(false)
+  const [hasTranscripts, setHasTranscripts] = useState(false)
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Initialisation de la réunion
@@ -83,6 +74,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
         if (isMounted && data.meeting) {
           setMeeting(data.meeting)
           setCustomMeetUrl(data.meeting.meetUrl || meetUrl || '')
+          setHasTranscripts(Boolean(data.meeting._count?.transcripts > 0))
         }
       } catch (err) {
         if (isMounted) setError((err as Error).message)
@@ -97,7 +89,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
     }
   }, [interviewId])
 
-  // Polling du direct quand le bot est en cours
+  // Polling du statut du bot (sans transcription en temps réel)
   const activeBot = meeting?.bots?.[0]
   const isBotActive =
     activeBot && ['connexion', 'salle_attente', 'en_appel', 'enregistrement'].includes(activeBot.status)
@@ -113,8 +105,8 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
         const res = await fetch(`/api/meetings/${meeting?.id}/live`)
         if (!res.ok) return
         const data = await res.json()
-        if (data.transcripts) {
-          setTranscripts(data.transcripts)
+        if (typeof data.hasTranscripts === 'boolean') {
+          setHasTranscripts(data.hasTranscripts)
         }
         if (data.bot) {
           setMeeting((prev) => (prev ? { ...prev, bots: [data.bot] } : null))
@@ -177,7 +169,6 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
             }
           : null,
       )
-      setShowLiveTranscript(true)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -235,7 +226,6 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
   }
 
   const note = meeting?.notes?.[0]
-  const hasTranscripts = transcripts.length > 0
 
   return (
     <div className="mbp-container">
@@ -244,7 +234,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
           <Bot className="mbp-icon" size={20} />
           <div>
             <h4 className="mbp-title">Finoana Scribe — Assistant Visioconférence</h4>
-            <p className="mbp-subtitle">Prise de notes autonome, transcription diarizée et synthèse Gemini</p>
+            <p className="mbp-subtitle">Enregistrement autonome en arrière-plan et synthèse IA post-entretien</p>
           </div>
         </div>
 
@@ -330,42 +320,14 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
             </Button>
           )}
 
-          {hasTranscripts && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowLiveTranscript(!showLiveTranscript)}
-            >
-              {showLiveTranscript ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {transcripts.length} réplique{transcripts.length > 1 ? 's' : ''}
-            </Button>
-          )}
-
-          {!note && hasTranscripts && !isBotActive && (
-            <Button size="sm" variant="primary" disabled={busy} onClick={handleGenerateNotes}>
+          {hasTranscripts && !isBotActive && (
+            <Button size="sm" variant={note ? 'outline' : 'primary'} disabled={busy} onClick={handleGenerateNotes}>
               <Sparkles size={14} />
-              Générer la synthèse
+              {note ? 'Régénérer la synthèse' : 'Générer la synthèse'}
             </Button>
           )}
         </div>
       </div>
-
-      {/* Vue live des transcripts */}
-      {showLiveTranscript && hasTranscripts && (
-        <div className="mbp-transcript-box">
-          <h5 className="mbp-transcript-title">Transcription en direct :</h5>
-          <div className="mbp-transcript-feed">
-            {transcripts.map((t, idx) => (
-              <div key={t.id || idx} className={`mbp-transcript-item is-${t.speakerRole}`}>
-                <span className="mbp-transcript-speaker">
-                  {t.speakerName} ({t.speakerRole}) · {formatTime(t.startTime)}
-                </span>
-                <p className="mbp-transcript-text">{t.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Compte-rendu d'évaluation généré */}
       {note && (
@@ -373,7 +335,7 @@ export function MeetingBotPanel({ interviewId, meetUrl, onApplyOutcome }: Meetin
           <div className="mbp-note-header">
             <div className="mbp-note-title">
               <Sparkles size={16} className="mbp-sparkle" />
-              <span>Synthèse de l'entretien (Gemini 1.5 Flash)</span>
+              <span>Synthèse IA de l'entretien</span>
             </div>
             {note.recommendation && (
               <span className={`mbp-rec-tag is-${note.recommendation}`}>
@@ -471,10 +433,4 @@ function formatRecommendation(rec: string): string {
     default:
       return rec
   }
-}
-
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }

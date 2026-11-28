@@ -12,6 +12,7 @@ import { InterviewRounds } from './InterviewRounds'
 import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { InterviewSummary } from './InterviewSummary'
 import { MeetingBotPanel } from './MeetingBotPanel'
+import { AiQuestionsSection } from './AiQuestionsSection'
 import { useApp } from '../../context/AppContext'
 import {
   ApiError,
@@ -422,6 +423,9 @@ export function RecruiterInterviewDetail({
         meetUrl={interview.meetUrl}
         onApplyOutcome={() => open('outcome')}
       />
+
+      {/* Recommandations de questions IA basées sur l'offre et le CV */}
+      <AiQuestionsSection suggestionId={suggestionId} candidateName={candidateName} />
 
       <InterviewSummary interview={interview} audience="recruiter" title="Récapitulatif">
         {canRecord && (

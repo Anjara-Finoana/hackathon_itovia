@@ -10,6 +10,7 @@ import {
   ExternalLink,
   FileSignature,
   FileText,
+  HelpCircle,
   Inbox,
   ListChecks,
   Search,
@@ -26,6 +27,8 @@ import { Input } from '../../components/ui/Form'
 import { Loading } from '../../components/ui/Loading'
 import { InterviewScheduleModal } from '../../components/interview/InterviewScheduleModal'
 import { RecruiterCvModal } from '../../components/matching/RecruiterCvModal'
+import { AiQuestionsSection } from '../../components/interview/AiQuestionsSection'
+import { Modal } from '../../components/ui/Modal'
 import {
   RecruiterInterviewDetail,
   type RecruiterInterviewEntry,
@@ -39,7 +42,15 @@ import {
   roundsOf,
 } from '../../components/hiring/hiringState'
 import { useApp } from '../../context/AppContext'
-import { apiMyOpportunities, type ReceivedSuggestion, type RecruiterOpportunity } from '../../lib/api'
+import {
+  ApiError,
+  apiGenerateOfferAiDecision,
+  apiGetOfferAiDecision,
+  apiMyOpportunities,
+  type OpportunityAiDecisionResult,
+  type ReceivedSuggestion,
+  type RecruiterOpportunity,
+} from '../../lib/api'
 import { checkHiringAction, nextRoundNumber, positionsFillLabel } from '../../lib/hiring'
 import { INTERVIEW_STATUS_LABELS, formatMadagascarDateTime, formatMadagascarShortDateTime } from '../../lib/interview'
 import { AVAILABILITY_LABELS, EXPERIENCE_LABELS } from '../../data/constants'
@@ -257,7 +268,12 @@ export function RecruiterApplications() {
   const [scheduling, setScheduling] = useState<ReceivedSuggestion | null>(null)
   // « Voir le CV » (décision 2026-11-18) : fiche structurée, ouverte depuis la carte.
   const [cvTarget, setCvTarget] = useState<ReceivedSuggestion | null>(null)
+  const [questionsTarget, setQuestionsTarget] = useState<ReceivedSuggestion | null>(null)
   const [detailTarget, setDetailTarget] = useState<{ id: string; entry: RecruiterInterviewEntry } | null>(null)
+  const [aiDecision, setAiDecision] = useState<OpportunityAiDecisionResult | null>(null)
+  const [aiDecisionLoading, setAiDecisionLoading] = useState(false)
+  const [aiDecisionError, setAiDecisionError] = useState('')
+  const [aiDecisionOpen, setAiDecisionOpen] = useState(false)
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null)
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
@@ -288,6 +304,45 @@ export function RecruiterApplications() {
   const selected = groups.find((g) => g.id === requestedId) ?? groups[0] ?? null
   /** Paramètre valide : sur écran étroit, on affiche le détail plutôt que la liste. */
   const hasExplicitSelection = !!requestedId && selected?.id === requestedId
+
+  // Charger une éventuelle aide à la décision IA déjà sauvegardée pour l'offre sélectionnée
+  useEffect(() => {
+    if (!selected?.id) {
+      setAiDecision(null)
+      setAiDecisionOpen(false)
+      return
+    }
+    let active = true
+    setAiDecisionError('')
+    apiGetOfferAiDecision(selected.id)
+      .then((res) => {
+        if (active) {
+          setAiDecision(res.data ?? null)
+          setAiDecisionOpen(Boolean(res.data))
+        }
+      })
+      .catch(() => {
+        if (active) setAiDecision(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [selected?.id])
+
+  const runAiDecision = async () => {
+    if (!selected?.id || aiDecisionLoading) return
+    setAiDecisionLoading(true)
+    setAiDecisionError('')
+    setAiDecisionOpen(true)
+    try {
+      const res = await apiGenerateOfferAiDecision(selected.id)
+      setAiDecision(res.data)
+    } catch (err) {
+      setAiDecisionError(err instanceof ApiError ? err.message : 'Analyse IA indisponible pour le moment.')
+    } finally {
+      setAiDecisionLoading(false)
+    }
+  }
 
   // Offre du paramètre disparue (lien ancien, dernier profil écarté) :
   // retour à la première de la liste, sans empiler d'entrée d'historique.
@@ -588,8 +643,88 @@ export function RecruiterApplications() {
                   <ListChecks size={14} aria-hidden />
                   Shortlist de l’offre
                 </Link>
+                {selected.items.length >= 2 && (
+                  <Button
+                    size="sm"
+                    variant={aiDecision ? 'outline' : 'primary'}
+                    disabled={aiDecisionLoading}
+                    onClick={runAiDecision}
+                  >
+                    <Sparkles size={14} aria-hidden />
+                    {aiDecisionLoading
+                      ? 'Analyse en cours…'
+                      : aiDecision
+                        ? 'Actualiser l’aide à la décision IA'
+                        : 'Aide à la décision IA'}
+                  </Button>
+                )}
               </div>
             </Card>
+
+            {aiDecisionOpen && (
+              <Card className="rcand-ai-decision">
+                <div className="rcand-ai-head">
+                  <div className="rcand-ai-title">
+                    <Sparkles size={16} aria-hidden />
+                    <strong>Aide à la décision IA — Comparatif des entretiens</strong>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setAiDecisionOpen(false)}>
+                    Masquer
+                  </Button>
+                </div>
+
+                {aiDecisionLoading && <p className="rcand-muted">Analyse des synthèses d’entretien en cours…</p>}
+                {aiDecisionError && (
+                  <p className="rapp-feedback is-error" role="alert">
+                    {aiDecisionError}
+                  </p>
+                )}
+
+                {!aiDecisionLoading && aiDecision && (
+                  <div className="rcand-ai-body">
+                    <p className="rcand-ai-summary">{aiDecision.summary}</p>
+
+                    {aiDecision.recommendedCandidate && (
+                      <div className="rcand-ai-winner">
+                        <span className="rcand-ai-badge">Profil le plus pertinent</span>
+                        <strong>{aiDecision.recommendedCandidate.fullName}</strong>
+                        <p>{aiDecision.recommendedCandidate.reason}</p>
+                      </div>
+                    )}
+
+                    {aiDecision.ranking.length > 0 && (
+                      <ul className="rcand-ai-ranking">
+                        {aiDecision.ranking.map((item) => (
+                          <li key={item.suggestionId} className="rcand-ai-rank-item">
+                            <div className="rcand-ai-rank-head">
+                              <strong>
+                                #{item.rank} · {item.fullName}
+                              </strong>
+                              {(item.technicalFitScore !== null || item.culturalFitScore !== null) && (
+                                <span className="rcand-ai-scores">
+                                  Tech {item.technicalFitScore ?? '–'}% · Culture {item.culturalFitScore ?? '–'}%
+                                </span>
+                              )}
+                            </div>
+                            <p>{item.explanation}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {aiDecision.pendingCandidates.length > 0 && (
+                      <p className="rcand-ai-pending">
+                        <AlertTriangle size={14} aria-hidden />
+                        <span>
+                          Candidats n’ayant pas encore passé d’entretien :{' '}
+                          <strong>{aiDecision.pendingCandidates.join(', ')}</strong>.
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </Card>
+            )}
 
             <div className="rcand-filters" role="group" aria-label="Filtrer les profils par statut">
               {STATUS_FILTERS.map((f) => (
@@ -679,6 +814,16 @@ export function RecruiterApplications() {
                           >
                             <FileText size={14} aria-hidden />
                             Voir le CV
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-haspopup="dialog"
+                            aria-label={`Questions IA pour ${candidateLabel(s)}`}
+                            onClick={() => setQuestionsTarget(s)}
+                          >
+                            <HelpCircle size={14} aria-hidden />
+                            Questions IA
                           </Button>
                         </div>
                       </div>
@@ -813,6 +958,21 @@ export function RecruiterApplications() {
             candidateName={candidateLabel(cvTarget)}
             onClose={() => setCvTarget(null)}
           />
+        )}
+
+        {questionsTarget && (
+          <Modal
+            title={`Questions IA — ${candidateLabel(questionsTarget)}`}
+            onClose={() => setQuestionsTarget(null)}
+          >
+            <p className="rcand-muted" style={{ marginTop: 0 }}>
+              Offre : <strong>{questionsTarget.opportunity.title}</strong>
+            </p>
+            <AiQuestionsSection
+              suggestionId={questionsTarget.id}
+              candidateName={candidateLabel(questionsTarget)}
+            />
+          </Modal>
         )}
 
         {scheduling && (
