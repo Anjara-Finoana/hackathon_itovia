@@ -34,6 +34,7 @@ import { otherDossiersSummary, withdrawFromOtherDossiers } from '../lib/withdraw
 import { HIRING_SUPPORTED, displayedRound, loadLinkedPlacements, omitHiringColumns } from '../lib/hiring-store.js'
 import { RECRUITER_FORBIDDEN_KEYS, candidateHiringPhase, findForbiddenKeys, hiringPhase } from '../../../src/lib/hiring.js'
 import { buildRecruiterCvSheet } from '../lib/recruiter-cv.js'
+import { compareCandidatesForOpportunity, generateInterviewQuestions } from '../lib/bot/interview-ai.js'
 import type { MatchSuggestion as DbMatchSuggestion } from '@prisma/client'
 import {
   absenceReplySchema,
@@ -846,6 +847,75 @@ router.post('/:id/hire-proposal/decline', requireRole('candidate'), async (req, 
       }),
     )
   } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Recommandations de questions d'entretien IA (offre + CV) sauvegardées sur le dossier.
+ */
+router.get('/:id/ai-questions', requireRole('recruiter'), async (req, res, next) => {
+  try {
+    const row = await prisma.matchSuggestion.findUnique({
+      where: { id: req.params.id },
+      select: {
+        aiInterviewQuestions: true,
+        opportunity: { select: { recruiterId: true } },
+      },
+    })
+    if (!row || row.opportunity.recruiterId !== req.session!.sub) {
+      res.status(404).json({ error: 'Dossier introuvable.' })
+      return
+    }
+    res.json({ data: row.aiInterviewQuestions ?? null })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/:id/ai-questions', requireRole('recruiter'), async (req, res, next) => {
+  try {
+    const data = await generateInterviewQuestions(req.params.id, req.session!.sub)
+    res.json({ data })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erreur génération questions IA'
+    if (msg.includes('introuvable')) {
+      res.status(404).json({ error: msg })
+      return
+    }
+    next(err)
+  }
+})
+
+/**
+ * Aide à la décision IA multi-candidats pour une offre du recruteur.
+ */
+router.get('/opportunities/:opportunityId/ai-decision', requireRole('recruiter'), async (req, res, next) => {
+  try {
+    const opp = await prisma.opportunity.findUnique({
+      where: { id: req.params.opportunityId },
+      select: { recruiterId: true, aiDecisionSummary: true },
+    })
+    if (!opp || opp.recruiterId !== req.session!.sub) {
+      res.status(404).json({ error: 'Offre introuvable.' })
+      return
+    }
+    res.json({ data: opp.aiDecisionSummary ?? null })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/opportunities/:opportunityId/ai-decision', requireRole('recruiter'), async (req, res, next) => {
+  try {
+    const data = await compareCandidatesForOpportunity(req.params.opportunityId, req.session!.sub)
+    res.json({ data })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erreur analyse comparative IA'
+    if (msg.includes('introuvable')) {
+      res.status(404).json({ error: msg })
+      return
+    }
     next(err)
   }
 })

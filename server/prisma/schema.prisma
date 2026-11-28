@@ -427,6 +427,8 @@ model Opportunity {
   /// `'auto'` (nombre de postes atteint) ou identifiant du recruteur
   /// (clôture manuelle). Interne : jamais renvoyé par l'API.
   filledBy        String?
+  /// Dernière synthèse comparative IA multi-candidats pour cette offre.
+  aiDecisionSummary Json?
 
   applications     Application[]
   bookmarks        Bookmark[]
@@ -508,6 +510,8 @@ model MatchSuggestion {
   proposals        HireProposal[]
   /// Placement né de ce dossier (proposition acceptée, ou déclaration reprise).
   placement        Placement?
+  /// Recommandations de questions d'entretien générées par l'IA (offre + CV).
+  aiInterviewQuestions Json?
 
   @@unique([opportunityId, candidateId])
   @@index([status])
@@ -1495,6 +1499,7 @@ model Transcript {
   createdAt   DateTime    @default(now())
 
   @@index([meetingId, startTime])
+  @@index([meetingId, createdAt])
   @@index([meetingId, chunkIndex])
 }
 

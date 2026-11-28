@@ -1,0 +1,120 @@
+.aiq-box {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.65rem;
+  background: var(--surface-subtle, #f8fafc);
+}
+
+.aiq-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.aiq-title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.aiq-icon {
+  color: var(--primary, #2563eb);
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.aiq-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.aiq-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.aiq-muted {
+  margin: 0.65rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-muted, #64748b);
+}
+
+.aiq-error {
+  margin: 0.65rem 0 0;
+  font-size: 0.84rem;
+  color: var(--danger, #b91c1c);
+}
+
+.aiq-content {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.aiq-focus {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  font-size: 0.84rem;
+}
+
+.aiq-focus ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.15rem;
+}
+
+.aiq-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.aiq-item {
+  padding: 0.55rem 0.7rem;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.5rem;
+}
+
+.aiq-cat {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  margin-bottom: 0.3rem;
+}
+
+.aiq-cat.is-vigilance {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.aiq-cat.is-soft_skills {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.aiq-q {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text, #0f172a);
+}
+
+.aiq-intent {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}

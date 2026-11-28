@@ -480,3 +480,112 @@
   font-weight: 600;
   color: var(--color-success);
 }
+
+/* Aide à la décision IA multi-candidats */
+.rcand-ai-decision {
+  margin-bottom: 1rem;
+  border-left: 3px solid var(--primary, #2563eb);
+  background: var(--surface-subtle, #f8fafc);
+}
+
+.rcand-ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.rcand-ai-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--primary, #2563eb);
+  font-size: 0.95rem;
+}
+
+.rcand-ai-body {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rcand-ai-summary {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.rcand-ai-winner {
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.55rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rcand-ai-winner p {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.rcand-ai-badge {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: #059669;
+  color: #ffffff;
+}
+
+.rcand-ai-ranking {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rcand-ai-rank-item {
+  padding: 0.6rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0.5rem;
+}
+
+.rcand-ai-rank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+}
+
+.rcand-ai-scores {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.rcand-ai-rank-item p {
+  margin: 0.25rem 0 0;
+  font-size: 0.83rem;
+  color: var(--text-muted, #475569);
+}
+
+.rcand-ai-pending {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.83rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}

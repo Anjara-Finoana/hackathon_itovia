@@ -33,7 +33,7 @@ export async function generateMeetingSynthesis(meetingId: string) {
     where: { id: meetingId },
     include: {
       transcripts: {
-        orderBy: { startTime: 'asc' },
+        orderBy: [{ createdAt: 'asc' }, { startTime: 'asc' }],
       },
       interview: {
         include: {
@@ -113,7 +113,7 @@ Instructions strictes de sortie JSON :
     try {
       const rawText = await antigravityGenerateText({
         prompt: `${prompt}\nRéponds UNIQUEMENT avec le JSON demandé.`,
-        model: process.env.ANTIGRAVITY_API_MODEL || 'gemini-3.8-flash-low',
+        model: process.env.ANTIGRAVITY_API_MODEL,
         timeoutMs: 40000,
       })
 
@@ -152,22 +152,44 @@ Instructions strictes de sortie JSON :
     synthesisData = generateFallbackSynthesis(dialogueText, opportunity?.title)
   }
 
-  // Sauvegarde dans la base de données (Note & ActionItem)
-  const note = await prisma.note.create({
-    data: {
-      meetingId,
-      summary: synthesisData.summary,
-      keyTakeaways: synthesisData.keyTakeaways,
-      candidateStrengths: synthesisData.candidateStrengths,
-      candidateWeaknesses: synthesisData.candidateWeaknesses,
-      technicalAssessment: synthesisData.technicalAssessment,
-      softSkillsAssessment: synthesisData.softSkillsAssessment,
-      culturalFitScore: synthesisData.culturalFitScore,
-      technicalFitScore: synthesisData.technicalFitScore,
-      recommendation: synthesisData.recommendation,
-      recommendedReason: synthesisData.recommendedReason,
-      rawAiResponse: synthesisData as unknown as object,
-    },
+  // Consolidation en une seule synthèse par réunion (même si le bot entre et sort plusieurs fois)
+  const notePayload = {
+    summary: synthesisData.summary,
+    keyTakeaways: synthesisData.keyTakeaways,
+    candidateStrengths: synthesisData.candidateStrengths,
+    candidateWeaknesses: synthesisData.candidateWeaknesses,
+    technicalAssessment: synthesisData.technicalAssessment,
+    softSkillsAssessment: synthesisData.softSkillsAssessment,
+    culturalFitScore: synthesisData.culturalFitScore,
+    technicalFitScore: synthesisData.technicalFitScore,
+    recommendation: synthesisData.recommendation,
+    recommendedReason: synthesisData.recommendedReason,
+    rawAiResponse: synthesisData as unknown as object,
+  }
+
+  const existingNote = await prisma.note.findFirst({
+    where: { meetingId },
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  const note = existingNote
+    ? await prisma.note.update({
+        where: { id: existingNote.id },
+        data: notePayload,
+      })
+    : await prisma.note.create({
+        data: {
+          meetingId,
+          ...notePayload,
+        },
+      })
+
+  // Nettoyage d'éventuelles notes/actions obsolètes sur cette réunion
+  await prisma.note.deleteMany({
+    where: { meetingId, id: { not: note.id } },
+  })
+  await prisma.actionItem.deleteMany({
+    where: { meetingId },
   })
 
   // Création des actions associées

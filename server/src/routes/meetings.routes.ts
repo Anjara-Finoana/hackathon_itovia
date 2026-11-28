@@ -7,6 +7,13 @@ import { generateMeetingSynthesis } from '../lib/bot/meeting-synthesis.js'
 const router = Router()
 const botProvider = new CustomBotProvider()
 
+const MEETING_INCLUDE = {
+  bots: { orderBy: { createdAt: 'desc' as const }, take: 1 },
+  notes: { orderBy: { updatedAt: 'desc' as const }, take: 1 },
+  actionItems: { orderBy: { createdAt: 'asc' as const } },
+  _count: { select: { transcripts: true } },
+}
+
 /**
  * Initialise ou récupère la réunion associée à un entretien
  */
@@ -28,11 +35,7 @@ router.post('/init-from-interview', requireAuth, async (req: Request, res: Respo
           },
         },
         meeting: {
-          include: {
-            bots: true,
-            notes: true,
-            actionItems: true,
-          },
+          include: MEETING_INCLUDE,
         },
       },
     })
@@ -47,11 +50,7 @@ router.post('/init-from-interview', requireAuth, async (req: Request, res: Respo
         const updatedMeeting = await prisma.meeting.update({
           where: { id: interview.meeting.id },
           data: { meetUrl: interview.meetUrl },
-          include: {
-            bots: true,
-            notes: true,
-            actionItems: true,
-          },
+          include: MEETING_INCLUDE,
         })
         res.json({ meeting: updatedMeeting })
         return
@@ -73,11 +72,7 @@ router.post('/init-from-interview', requireAuth, async (req: Request, res: Respo
         participantId,
         scheduledAt: interview.scheduledAt,
       },
-      include: {
-        bots: true,
-        notes: true,
-        actionItems: true,
-      },
+      include: MEETING_INCLUDE,
     })
 
     res.status(201).json({ meeting })
@@ -94,11 +89,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const meeting = await prisma.meeting.findUnique({
       where: { id: req.params.id },
-      include: {
-        bots: { orderBy: { createdAt: 'desc' }, take: 1 },
-        notes: { orderBy: { createdAt: 'desc' }, take: 1 },
-        actionItems: { orderBy: { createdAt: 'asc' } },
-      },
+      include: MEETING_INCLUDE,
     })
 
     if (!meeting) {
@@ -266,22 +257,21 @@ router.post('/:id/bot/leave', requireAuth, async (req: Request, res: Response) =
 })
 
 /**
- * Récupération du flux en direct (statut bot + derniers transcripts)
+ * Récupération du statut en direct (statut bot + synthèse finale, sans transcription live)
  */
 router.get('/:id/live', requireAuth, async (req: Request, res: Response) => {
   try {
     const meetingId = req.params.id
-    const [meeting, transcripts] = await Promise.all([
+    const [meeting, transcriptCount] = await Promise.all([
       prisma.meeting.findUnique({
         where: { id: meetingId },
         include: {
           bots: { orderBy: { createdAt: 'desc' }, take: 1 },
-          notes: { orderBy: { createdAt: 'desc' }, take: 1 },
+          notes: { orderBy: { updatedAt: 'desc' }, take: 1 },
         },
       }),
-      prisma.transcript.findMany({
+      prisma.transcript.count({
         where: { meetingId },
-        orderBy: { startTime: 'asc' },
       }),
     ])
 
@@ -294,10 +284,61 @@ router.get('/:id/live', requireAuth, async (req: Request, res: Response) => {
       status: meeting.status,
       bot: meeting.bots[0] || null,
       note: meeting.notes[0] || null,
-      transcripts,
+      hasTranscripts: transcriptCount > 0,
     })
   } catch (err) {
     res.status(500).json({ error: 'Erreur consultation live' })
+  }
+})
+
+/**
+ * Historique complet des réunions / synthèses d'un dossier candidat (tous tours confondus)
+ */
+router.get('/by-suggestion/:suggestionId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const suggestion = await prisma.matchSuggestion.findUnique({
+      where: { id: req.params.suggestionId },
+      include: {
+        opportunity: { select: { recruiterId: true } },
+        interviews: {
+          orderBy: { round: 'asc' },
+          include: {
+            meeting: {
+              include: {
+                notes: { orderBy: { updatedAt: 'desc' }, take: 1 },
+                _count: { select: { transcripts: true } },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!suggestion) {
+      res.status(404).json({ error: 'Dossier introuvable' })
+      return
+    }
+
+    const role = req.session?.role
+    if (role !== 'admin' && suggestion.opportunity.recruiterId !== req.session?.sub) {
+      res.status(403).json({ error: 'Accès non autorisé' })
+      return
+    }
+
+    const rounds = suggestion.interviews.map((iv) => ({
+      interviewId: iv.id,
+      round: iv.round,
+      scheduledAt: iv.scheduledAt,
+      outcome: iv.outcome,
+      meetingId: iv.meeting?.id ?? null,
+      transcriptCount: iv.meeting?._count.transcripts ?? 0,
+      note: iv.meeting?.notes[0] ?? null,
+    }))
+
+    res.json({ suggestionId: suggestion.id, rounds })
+  } catch (err) {
+    console.error('[Meetings] Erreur by-suggestion:', err)
+    res.status(500).json({ error: 'Erreur chargement historique des synthèses' })
   }
 })
 
