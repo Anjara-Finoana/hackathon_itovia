@@ -484,8 +484,9 @@
 /* Aide à la décision IA multi-candidats */
 .rcand-ai-decision {
   margin-bottom: 1rem;
-  border-left: 3px solid var(--primary, #2563eb);
-  background: var(--surface-subtle, #f8fafc);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
 
 .rcand-ai-head {
@@ -499,7 +500,7 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  color: var(--primary, #2563eb);
+  color: var(--color-accent);
   font-size: 0.95rem;
 }
 
@@ -514,13 +515,15 @@
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.45;
+  color: var(--color-ink);
 }
 
 .rcand-ai-winner {
   padding: 0.7rem 0.85rem;
-  border-radius: 0.55rem;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-muted);
+  border: 1px solid var(--color-accent);
+  color: var(--color-ink);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -529,6 +532,7 @@
 .rcand-ai-winner p {
   margin: 0;
   font-size: 0.84rem;
+  color: var(--color-ink);
 }
 
 .rcand-ai-badge {
@@ -537,7 +541,7 @@
   font-weight: 600;
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
-  background: #059669;
+  background: var(--color-accent);
   color: #ffffff;
 }
 
@@ -552,9 +556,10 @@
 
 .rcand-ai-rank-item {
   padding: 0.6rem 0.75rem;
-  background: #ffffff;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink);
 }
 
 .rcand-ai-rank-head {
@@ -568,22 +573,22 @@
 
 .rcand-ai-scores {
   font-size: 0.78rem;
-  color: var(--text-muted, #64748b);
+  color: var(--color-ink-muted);
 }
 
 .rcand-ai-rank-item p {
   margin: 0.25rem 0 0;
   font-size: 0.83rem;
-  color: var(--text-muted, #475569);
+  color: var(--color-ink-muted);
 }
 
 .rcand-ai-pending {
   margin: 0;
   padding: 0.55rem 0.75rem;
-  border-radius: 0.5rem;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-warning);
   font-size: 0.83rem;
   display: flex;
   align-items: center;
